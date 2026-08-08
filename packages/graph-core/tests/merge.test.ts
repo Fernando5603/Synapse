@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { emptyGraph, mergeProposal } from "../src/index.js";
+import { emptyGraph, mergeProposal, type Proposal } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const srcDir = resolve(here, "../src");
@@ -44,11 +44,11 @@ describe("la fusión de propuestas al grafo", () => {
   });
 
   it("dos propuestas del mismo concepto con distinta grafía —mayúsculas— dan un solo nodo", () => {
-    const proposalA = {
+    const proposalA: Proposal = {
       nodes: [{ type: "Concept", name: "Base de datos" }],
       edges: [],
     };
-    const proposalB = {
+    const proposalB: Proposal = {
       nodes: [{ type: "Concept", name: "BASE DE DATOS" }],
       edges: [],
     };
@@ -63,15 +63,15 @@ describe("la fusión de propuestas al grafo", () => {
   });
 
   it("tres grafías del mismo concepto —plural, tilde y artículo— dan un solo nodo", () => {
-    const singular = {
+    const singular: Proposal = {
       nodes: [{ type: "Concept", name: "decisión" }],
       edges: [],
     };
-    const plural = {
+    const plural: Proposal = {
       nodes: [{ type: "Concept", name: "decisiones" }],
       edges: [],
     };
-    const conArticulo = {
+    const conArticulo: Proposal = {
       nodes: [{ type: "Concept", name: "la decisión" }],
       edges: [],
     };
@@ -86,7 +86,7 @@ describe("la fusión de propuestas al grafo", () => {
   });
 
   it("reaplicar una propuesta ya mergeada no añade nada", () => {
-    const proposal = {
+    const proposal: Proposal = {
       nodes: [{ type: "Claim", name: "El césped es verde" }],
       edges: [],
     };
@@ -184,6 +184,7 @@ describe("la fusión de propuestas al grafo", () => {
       nodes: [
         { id: "concept-python", type: "Concept" as const, name: "Python" },
         { id: "person-python", type: "Person" as const, name: "Python" },
+        { id: "concept-asyncio", type: "Concept" as const, name: "asyncio" },
       ],
       edges: [],
       version: 1,
@@ -191,12 +192,154 @@ describe("la fusión de propuestas al grafo", () => {
 
     const result = mergeProposal(graph, {
       nodes: [],
-      edges: [{ type: "ELABORATES", from: "python", to: "python" }],
+      edges: [{ type: "ELABORATES", from: "asyncio", to: "python" }],
     });
 
     expect(result.graph.edges).toHaveLength(1);
-    expect(result.delta.addedEdges[0]!.from).toBe("concept-python");
     expect(result.delta.addedEdges[0]!.to).toBe("concept-python");
+  });
+
+  it("una arista de un nodo hacia sí mismo se descarta", () => {
+    const graph = {
+      nodes: [{ id: "concept-portal", type: "Concept" as const, name: "Portal" }],
+      edges: [],
+      version: 1,
+    };
+
+    const result = mergeProposal(graph, {
+      nodes: [],
+      edges: [{ type: "ELABORATES", from: "Portal", to: "portal" }],
+    });
+
+    expect(result.graph.edges).toHaveLength(0);
+    expect(result.delta.addedEdges).toHaveLength(0);
+  });
+
+  it("quien propuso un nodo primero queda registrado y una propuesta posterior no lo reescribe", () => {
+    const first = mergeProposal(emptyGraph(), {
+      nodes: [{ type: "Claim", name: "El debounce se come el presupuesto", proposedBy: "u-ana" }],
+      edges: [],
+    });
+
+    const second = mergeProposal(first.graph, {
+      nodes: [{ type: "Claim", name: "el debounce se come el presupuesto", proposedBy: "u-bruno" }],
+      edges: [],
+    });
+
+    expect(second.graph.nodes).toHaveLength(1);
+    expect(second.graph.nodes[0]!.proposedBy).toBe("u-ana");
+  });
+});
+
+describe("la fusión de propuestas en inglés", () => {
+  it("un concepto con artículo inglés es el mismo nodo que su forma desnuda", () => {
+    const conArticulo = {
+      nodes: [{ type: "Concept" as const, name: "the authoritative graph" }],
+      edges: [],
+    };
+    const desnudo = {
+      nodes: [{ type: "Concept" as const, name: "authoritative graph" }],
+      edges: [],
+    };
+
+    const first = mergeProposal(emptyGraph(), conArticulo);
+    const second = mergeProposal(first.graph, desnudo);
+
+    expect(second.graph.nodes).toHaveLength(1);
+    expect(second.delta.addedNodes).toHaveLength(0);
+  });
+
+  it("el plural inglés de una palabra terminada en -e no abre un nodo aparte", () => {
+    const plural = {
+      nodes: [
+        { type: "Concept" as const, name: "entity types" },
+        { type: "Concept" as const, name: "databases" },
+        { type: "Concept" as const, name: "interfaces" },
+      ],
+      edges: [],
+    };
+    const singular = {
+      nodes: [
+        { type: "Concept" as const, name: "entity type" },
+        { type: "Concept" as const, name: "database" },
+        { type: "Concept" as const, name: "interface" },
+      ],
+      edges: [],
+    };
+
+    const first = mergeProposal(emptyGraph(), plural);
+    const second = mergeProposal(first.graph, singular);
+
+    expect(first.graph.nodes).toHaveLength(3);
+    expect(second.graph.nodes).toHaveLength(3);
+    expect(second.delta.addedNodes).toHaveLength(0);
+  });
+
+  it("un nombre que es solo un artículo no se funde con cualquier otro", () => {
+    const result = mergeProposal(emptyGraph(), {
+      nodes: [
+        { type: "Concept", name: "A" },
+        { type: "Concept", name: "The" },
+      ],
+      edges: [],
+    });
+
+    expect(result.graph.nodes).toHaveLength(2);
+  });
+});
+
+describe("la identidad de los nodos del grafo", () => {
+  it("dos nombres distintos que se reducen al mismo identificador siguen siendo dos nodos", () => {
+    const result = mergeProposal(emptyGraph(), {
+      nodes: [
+        { type: "Concept", name: "C++" },
+        { type: "Concept", name: "C#" },
+      ],
+      edges: [],
+    });
+
+    expect(result.graph.nodes).toHaveLength(2);
+    const ids = result.graph.nodes.map((node) => node.id);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("todo nodo que el delta anuncia está en el grafo resultante", () => {
+    const result = mergeProposal(emptyGraph(), {
+      nodes: [
+        { type: "Concept", name: "C++" },
+        { type: "Concept", name: "C#" },
+        { type: "Concept", name: "C" },
+        { type: "Claim", name: "C++ es más rápido" },
+      ],
+      edges: [],
+    });
+
+    const idsEnGrafo = new Set(result.graph.nodes.map((node) => node.id));
+    for (const added of result.delta.addedNodes) {
+      expect(idsEnGrafo.has(added.id)).toBe(true);
+    }
+    expect(result.graph.nodes).toHaveLength(result.delta.addedNodes.length);
+  });
+
+  it("una arista hacia un nombre ambiguo apunta a un nodo que existe en el grafo", () => {
+    const first = mergeProposal(emptyGraph(), {
+      nodes: [
+        { type: "Concept", name: "C++" },
+        { type: "Concept", name: "C#" },
+      ],
+      edges: [],
+    });
+
+    const second = mergeProposal(first.graph, {
+      nodes: [{ type: "Claim", name: "C# tiene mejor tooling" }],
+      edges: [{ type: "SUPPORTS", from: "C# tiene mejor tooling", to: "C#" }],
+    });
+
+    const idsEnGrafo = new Set(second.graph.nodes.map((node) => node.id));
+    for (const edge of second.graph.edges) {
+      expect(idsEnGrafo.has(edge.from)).toBe(true);
+      expect(idsEnGrafo.has(edge.to)).toBe(true);
+    }
   });
 });
 

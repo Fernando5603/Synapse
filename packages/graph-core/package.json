@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "tsc --build --force",
+    "typecheck": "tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run"
   }
 }

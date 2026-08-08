@@ -17,11 +17,23 @@ export default function RoomClient({ roomId }: { roomId: string }) {
 
   const portal = useMemo(() => {
     const apiKey = process.env.NEXT_PUBLIC_PORTAL_API_KEY;
-    if (!apiKey) {
-      throw new Error("NEXT_PUBLIC_PORTAL_API_KEY is not set");
-    }
-    return new Portal({ apiKey });
+    return apiKey ? new Portal({ apiKey }) : null;
   }, []);
+
+  // Lanzar aquí dejaría la pantalla en blanco en un deploy sin la variable: el throw
+  // ocurre en render, antes incluso del formulario de entrada.
+  if (portal === null) {
+    return (
+      <main style={{ maxWidth: 520, margin: "10vh auto 0", padding: "0 16px" }}>
+        <h1>Synapse</h1>
+        <p>
+          Falta <code>NEXT_PUBLIC_PORTAL_API_KEY</code>. Copia{" "}
+          <code>.env.example</code> a <code>.env.local</code> con la publishable
+          key de Portal (<code>pk_…</code>), o defínela en el entorno del deploy.
+        </p>
+      </main>
+    );
+  }
 
   if (displayName === null) {
     return <JoinForm onJoin={handleJoin} />;

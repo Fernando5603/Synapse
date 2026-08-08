@@ -57,6 +57,12 @@ Delta    = { addedNodes: Node[], addedEdges: Edge[], version: number }
 - Las `Proposal` refieren nodos **por nombre** (el LLM no conoce ids); `mergeProposal` resuelve nombre→id.
 - Un `Delta` vacío es válido y se emite con la versión incrementada (sostiene el criterio (a)).
 
+Reglas de `mergeProposal` fijadas por test (no cambiarlas sin rippear el gold):
+
+- **Normalización bilingüe.** Minúsculas, sin tildes, sin artículos (`el/la/los/las/un/una/unos/unas` y `the/a/an`), singular. El plural de palabra terminada en `-e` colapsa con su singular (`databases` = `database`, `mensajes` = `mensaje`). El **script de evaluación debe usar exactamente este criterio**: es a la vez la clave de dedupe del grafo y el criterio de acierto contra el gold.
+- **Los ids son únicos aunque el slug colisione.** `C++` y `C#` dan los dos `concept-c-`; el segundo recibe `concept-c--2`. Invariante que sostiene el late-join del V4: todo nodo que un `Delta` anuncia está en `graph.nodes`.
+- **Se descartan** las aristas hacia un nombre inexistente y las de un nodo hacia sí mismo. `proposedBy` lo fija quien propone el nodo primero; una propuesta posterior no lo reescribe.
+
 ## Decisiones de implementación clave
 
 - **Filtro por namespace + `channelId` en la primera línea del webhook** (N21). No es higiene: es lo que evita que el backend se auto-alimente con sus propios `graph.delta` y `graph.proposal`.

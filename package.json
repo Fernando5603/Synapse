@@ -6,7 +6,8 @@
     "apps/*"
   ],
   "scripts": {
-    "typecheck": "tsc --build",
+    "build": "tsc --build",
+    "typecheck": "npm run typecheck -w @synapse/graph-core && npm run typecheck -w web",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:graph-core": "vitest run packages/graph-core",

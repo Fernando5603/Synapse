@@ -5,3 +5,5 @@ dist/
 *.tgz
 .env.local
 .env*.local
+
+.env
