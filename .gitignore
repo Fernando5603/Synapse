@@ -3,3 +3,5 @@ dist/
 *.tsbuildinfo
 .next/
 *.tgz
+.env.local
+.env*.local
