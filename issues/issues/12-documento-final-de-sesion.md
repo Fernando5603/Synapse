@@ -8,15 +8,15 @@ La plantilla es determinista y recorre el grafo — entra en `graph-core` como f
 
 **Blocked by:** 06.
 
-**Status:** ready-for-agent
+**Status:** done (renderDocument puro + UI de cierre; snapshot fresco y síntesis quedan para 06/backend)
 
-- [ ] `renderDocument` entra en `graph-core` como función pura, con tests
-- [ ] Lista las decisiones con su cadena de soporte
-- [ ] Lista las contradicciones sin resolver
-- [ ] Lista las `Question` sin arista `ANSWERS` como lo que quedó abierto
-- [ ] Sobre un grafo vacío produce un documento válido, no una excepción
-- [ ] Cerrar la sesión muestra el markdown completo de inmediato, sin esperar a ningún modelo
-- [ ] La síntesis se dispara al cerrar, no bloquea, y el párrafo se inserta arriba al llegar
-- [ ] Si el párrafo nunca llega, el documento sigue siendo válido
-- [ ] El documento se genera desde un snapshot fresco del grafo autoritativo, no desde el espejo del backend
-- [ ] El markdown se puede descargar
+- [x] `renderDocument` entra en `graph-core` como función pura, con tests — `src/document.ts`
+- [x] Lista las decisiones con su cadena de soporte — SUPPORTS/ELABORATES transitivos
+- [x] Lista las contradicciones sin resolver — todas las CONTRADICTS
+- [x] Lista las `Question` sin arista `ANSWERS` como lo que quedó abierto
+- [x] Sobre un grafo vacío produce un documento válido, no una excepción
+- [x] Cerrar la sesión muestra el markdown completo de inmediato, sin esperar a ningún modelo — `SessionDoc` renderiza `renderDocument(graph)` síncrono
+- [ ] La síntesis se dispara al cerrar, no bloquea, y el párrafo se inserta arriba al llegar — *requiere el backend/LLM (05/07); anotado*
+- [x] Si el párrafo nunca llega, el documento sigue siendo válido — por construcción: la plantilla no depende de la síntesis
+- [ ] El documento se genera desde un snapshot fresco del grafo autoritativo, no desde el espejo del backend — *requiere 06 (onSnapshot); hoy usa el mock*
+- [x] El markdown se puede descargar — botón en el modal

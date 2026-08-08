@@ -14,12 +14,14 @@ export default function ChatPanel({
   participants,
   knownNames,
   onSend,
+  action,
 }: {
   messages: readonly Message<{ text: string }>[];
   me: Me | undefined;
   participants: Participant[];
   knownNames: ReadonlyMap<string, string>;
   onSend: (text: string) => void;
+  action?: React.ReactNode;
 }) {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,18 @@ export default function ChatPanel({
           ))
         )}
       </div>
+      {action !== undefined && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "8px 16px",
+            borderBottom: "1px solid #ddd",
+          }}
+        >
+          {action}
+        </div>
+      )}
       <form
         style={{ display: "flex", gap: 8, padding: 16, borderTop: "1px solid #ddd" }}
         onSubmit={(e) => {

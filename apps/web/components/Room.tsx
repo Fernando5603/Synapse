@@ -3,9 +3,11 @@
 import { useChannel } from "@portalsdk/react";
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@portalsdk/core";
+import { renderDocument } from "@synapse/graph-core";
 import ChatPanel from "./ChatPanel";
 import GraphCanvas from "./GraphCanvas";
 import PresenceBar from "./PresenceBar";
+import SessionDoc from "./SessionDoc";
 import { isChatContent, isCursorContent, type ChannelContent } from "@/lib/channel";
 import {
   mergeRemoteCursors,
@@ -114,6 +116,9 @@ export default function Room({
         participants={participants}
         knownNames={knownNames}
         onSend={(text) => send({ content: { text } })}
+        action={
+          <SessionDoc markdown={renderDocument(graph)} />
+        }
       />
     </main>
   );

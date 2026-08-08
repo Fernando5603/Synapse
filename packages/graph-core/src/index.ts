@@ -12,3 +12,4 @@ export type {
 } from "./types.js";
 
 export { emptyGraph, mergeProposal } from "./merge.js";
+export { renderDocument } from "./document.js";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { emptyGraph, mergeProposal, type Proposal } from "../src/index.js";
@@ -345,7 +345,9 @@ describe("la identidad de los nodos del grafo", () => {
 
 describe("el módulo es puro", () => {
   it("no importa nada de Portal, Next.js, fetch ni Date", () => {
-    const source = ["index.ts", "merge.ts", "types.ts"]
+    // Leer todos los fuentes del paquete: un archivo nuevo no escapa al gate.
+    const source = readdirSync(srcDir)
+      .filter((file) => file.endsWith(".ts"))
       .map((file) => readFileSync(resolve(srcDir, file), "utf8"))
       .join("\n");
 
