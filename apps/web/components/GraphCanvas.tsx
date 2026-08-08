@@ -8,6 +8,7 @@ import {
   type Position,
   type Positions,
 } from "@/lib/layout";
+import type { RemoteCursor } from "@/lib/cursor";
 
 const VIEW_BOUNDS = { width: 840, height: 600 };
 
@@ -38,9 +39,27 @@ const NODE_LABEL: Record<EntityType, string> = {
   Decision: "D",
 };
 
-export default function GraphCanvas({ graph }: { graph: Graph }) {
+export default function GraphCanvas({
+  graph,
+  remoteCursors = [],
+  onCursorMove,
+}: {
+  graph: Graph;
+  remoteCursors?: readonly RemoteCursor[];
+  onCursorMove?: (x: number, y: number) => void;
+}) {
   const [positions, setPositions] = useState<Positions>(() => new Map());
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+
+  function cursorCoords(
+    event: React.PointerEvent<SVGSVGElement>,
+  ): { x: number; y: number } {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * (VIEW_BOUNDS.width / rect.width),
+      y: (event.clientY - rect.top) * (VIEW_BOUNDS.height / rect.height),
+    };
+  }
 
   // Siembra determinista: solo los nodos nuevos reciben posición. Como la
   // posición es función pura del `id`, un nodo aparece en el mismo sitio en las
@@ -78,6 +97,8 @@ export default function GraphCanvas({ graph }: { graph: Graph }) {
         height="100%"
         viewBox={`0 0 ${VIEW_BOUNDS.width} ${VIEW_BOUNDS.height}`}
         onPointerMove={(event) => {
+          const coords = cursorCoords(event);
+          onCursorMove?.(coords.x, coords.y);
           const drag = dragRef.current;
           if (drag === null) {
             return;
@@ -176,6 +197,22 @@ export default function GraphCanvas({ graph }: { graph: Graph }) {
             </g>
           );
         })}
+        {remoteCursors.map((cursor) => (
+          <g
+            key={cursor.id}
+            transform={`translate(${cursor.x} ${cursor.y})`}
+            pointerEvents="none"
+          >
+            <path
+              d="M 0 0 L 0 18 L 5 13 L 9 20 L 13 18 L 9 11 L 16 10 Z"
+              fill="#333"
+              opacity={0.9}
+            />
+            <text x={4} y={-6} fontSize={11} fill="#333" fontWeight="600">
+              {cursor.displayName}
+            </text>
+          </g>
+        ))}
       </svg>
       <Legend />
     </section>

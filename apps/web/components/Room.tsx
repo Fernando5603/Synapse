@@ -1,12 +1,22 @@
 "use client";
 
 import { useChannel } from "@portalsdk/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Message } from "@portalsdk/core";
 import ChatPanel from "./ChatPanel";
 import GraphCanvas from "./GraphCanvas";
 import PresenceBar from "./PresenceBar";
+import { isChatContent, isCursorContent, type ChannelContent } from "@/lib/channel";
+import {
+  mergeRemoteCursors,
+  shouldEmitCursor,
+  type CursorPosition,
+} from "@/lib/cursor";
 import { detailedParticipants, resolveDisplayName } from "@/lib/display";
 import { mockSessionGraph } from "@/lib/mockGraph";
+
+const CURSOR_EPHEMERAL_INTERVAL = 50;
+const CURSOR_METADATA_INTERVAL = 250;
 
 export default function Room({
   roomId,
@@ -15,10 +25,28 @@ export default function Room({
   roomId: string;
   displayName: string;
 }) {
-  const { messages, send, presence, me, status } = useChannel<{ text: string }>(
+  const { messages, send, presence, me, status, setMetadata } = useChannel<ChannelContent>(
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
-    { channelId: roomId, metadata: { displayName }, history: 200 },
+    {
+      channelId: roomId,
+      metadata: { displayName },
+      history: 200,
+      onMessage: (msg) => {
+        if (msg.ephemeral && msg.type === "cursor" && isCursorContent(msg.content)) {
+          const { x, y } = msg.content;
+          setLiveCursors((previous) => {
+            const next = new Map(previous);
+            next.set(msg.sender.id, { x, y });
+            return next;
+          });
+        }
+      },
+    },
+  );
+
+  const chatMessages = messages.filter((m): m is Message<{ text: string }> =>
+    isChatContent(m.content),
   );
 
   const participants = detailedParticipants(presence);
@@ -50,6 +78,24 @@ export default function Room({
     });
   }, [participants, me]);
 
+  const [liveCursors, setLiveCursors] = useState<Map<string, CursorPosition>>(
+    () => new Map(),
+  );
+  const lastEphemeralRef = useRef<number | undefined>(undefined);
+  const lastMetadataRef = useRef<number | undefined>(undefined);
+
+  function handleCursorMove(x: number, y: number) {
+    const now = Date.now();
+    if (shouldEmitCursor(lastEphemeralRef.current, now, CURSOR_EPHEMERAL_INTERVAL)) {
+      lastEphemeralRef.current = now;
+      send({ ephemeral: true, type: "cursor", content: { x, y } });
+    }
+    if (shouldEmitCursor(lastMetadataRef.current, now, CURSOR_METADATA_INTERVAL)) {
+      lastMetadataRef.current = now;
+      setMetadata({ displayName, cursor: { x, y } });
+    }
+  }
+
   // Datos estáticos con el tamaño de una sesión real mientras 04/06 no existen;
   // cuando aterricen, esta fuente se sustituye por el grafo autoritativo.
   const [graph] = useState(() => mockSessionGraph());
@@ -57,9 +103,13 @@ export default function Room({
   return (
     <main style={{ display: "flex", height: "100vh" }}>
       <PresenceBar me={me} participants={participants} status={status} />
-      <GraphCanvas graph={graph} />
+      <GraphCanvas
+        graph={graph}
+        remoteCursors={mergeRemoteCursors(me, participants, liveCursors)}
+        onCursorMove={handleCursorMove}
+      />
       <ChatPanel
-        messages={messages}
+        messages={chatMessages}
         me={me}
         participants={participants}
         knownNames={knownNames}
