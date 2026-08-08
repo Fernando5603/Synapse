@@ -85,7 +85,8 @@ Reglas de `mergeProposal` fijadas por test (no cambiarlas sin rippear el gold):
 
 - **Seam aprobado 1 — `graph-core`** (`packages/graph-core/src/merge.ts`): tests de comportamiento externo (grafo+propuesta → grafo/delta/markdown), sin servidor, sin Portal, sin red, sin reloj. Los nombres describen la regla de negocio, no el método.
 - **Seam aprobado 2 — display-name/roster** (`apps/web/lib/display.ts`): lógica pura de nombres de mensaje y roster sobre datos con forma del SDK (participants, me, sender), sin importar el SDK. Tests de comportamiento con nombres de regla de negocio.
-- **No se testea**: la extracción del LLM (se mide contra el gold, criterio (b)); el transporte de Portal/SDK/webhook/extensión desplegada (se verifica en 3 corridas del guion en el entorno desplegado); la política de fallo (se verifica a mano en V5 con el extractor apuntando a una URL muerta); el render (se verifica mirándolo).
+- **Seam aprobado 3 — layout del grafo** (`apps/web/lib/layout.ts`): siembra determinista de posición desde el `id` del nodo (`seedPosition`, función pura: misma posición para el mismo `id` en cualquier pantalla, dentro del lienzo) + relajación estrictamente local (`relaxNeighbors` mueve solo los vecinos inmediatos del nodo ancla hacia la distancia de reposo, sin re-layout global ni historial de llegada). Lógica pura sobre el contrato de `graph-core`, sin importar el SDK.
+- **No se testea**: la extracción del LLM (se mide contra el gold, criterio (b)); el transporte de Portal/SDK/webhook/extensión desplegada (se verifica en 3 corridas del guion en el entorno desplegado); la política de fallo (se verifica a mano en V5 con el extractor apuntando a una URL muerta); el render y el canvas (se verifican mirándolos).
 
 ## Orden de construcción (breadboard.md, slices V1–V9)
 

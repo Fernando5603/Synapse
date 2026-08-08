@@ -3,8 +3,10 @@
 import { useChannel } from "@portalsdk/react";
 import { useEffect, useState } from "react";
 import ChatPanel from "./ChatPanel";
+import GraphCanvas from "./GraphCanvas";
 import PresenceBar from "./PresenceBar";
 import { detailedParticipants, resolveDisplayName } from "@/lib/display";
+import { mockSessionGraph } from "@/lib/mockGraph";
 
 export default function Room({
   roomId,
@@ -48,9 +50,14 @@ export default function Room({
     });
   }, [participants, me]);
 
+  // Datos estáticos con el tamaño de una sesión real mientras 04/06 no existen;
+  // cuando aterricen, esta fuente se sustituye por el grafo autoritativo.
+  const [graph] = useState(() => mockSessionGraph());
+
   return (
     <main style={{ display: "flex", height: "100vh" }}>
       <PresenceBar me={me} participants={participants} status={status} />
+      <GraphCanvas graph={graph} />
       <ChatPanel
         messages={messages}
         me={me}

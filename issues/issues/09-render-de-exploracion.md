@@ -6,12 +6,14 @@
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done (canvas con mock mientras 04/06 no existen)
 
-- [ ] La posición inicial de un nodo se siembra de forma determinista desde su `id`: las tres pantallas coinciden
-- [ ] Un nodo se queda donde apareció; la llegada de un delta no reorganiza el lienzo
-- [ ] El force-directed corre solo contra vecinos inmediatos, nunca global
-- [ ] Aristas `SUPPORTS` en verde y `CONTRADICTS` en rojo
-- [ ] Arrastrar un nodo lo mueve solo en mi pantalla
-- [ ] El tipo de cada nodo se distingue de un vistazo
-- [ ] Con ~40 nodos el lienzo sigue siendo legible
+- [x] La posición inicial de un nodo se siembra de forma determinista desde su `id`: las tres pantallas coinciden — `lib/layout.ts` `seedPosition`
+- [x] Un nodo se queda donde apareció; la llegada de un delta no reorganiza el lienzo — `relaxInto` mueve solo los nuevos
+- [x] El force-directed corre solo contra vecinos inmediatos, nunca global — `relaxLocal`/`relaxInto`
+- [x] Aristas `SUPPORTS` en verde y `CONTRADICTS` en rojo — `GraphCanvas`
+- [x] Arrastrar un nodo lo mueve solo en mi pantalla — estado local del canvas
+- [x] El tipo de cada nodo se distingue de un vistazo — color + letra por tipo, leyenda
+- [x] Con ~40 nodos el lienzo sigue siendo legible — mock de 40 nodos en `lib/mockGraph.ts`
+
+Fuente real pendiente: `GraphCanvas` ya recibe un `Graph` por props; al aterrizar 04/06 el mock en `Room` se sustituye por el grafo autoritativo sin tocar el canvas.
