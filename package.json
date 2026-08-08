@@ -2,13 +2,16 @@
   "name": "synapse",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "typecheck": "tsc --build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:graph-core": "vitest run packages/graph-core"
+    "test:graph-core": "vitest run packages/graph-core",
+    "test:web": "vitest run apps/web",
+    "dev:web": "npm run dev -w web"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
