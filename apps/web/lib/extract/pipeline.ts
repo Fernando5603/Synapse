@@ -24,6 +24,15 @@ export interface PipelineOptions {
    */
   deliver: (roomId: string, proposal: Proposal, authorId: string | undefined) => Promise<void>;
   /**
+   * El nombre de quien habló, para que el prompt pueda atribuir los turnos.
+   *
+   * Se inyecta porque la única fuente es la presencia del canal del agente, que es
+   * transporte: el pipeline sigue siendo puro. Devolver `undefined` es legítimo —el
+   * roster puede no tener todavía a quien acaba de escribir— y el prompt cae a una
+   * etiqueta genérica.
+   */
+  resolveSpeaker?: (senderId: string) => string | undefined;
+  /**
    * Señales de estado del agente. Son puras: deciden *qué* avisar; la emisión del
    * efímero por el canal es transporte y la hace el runtime.
    */
@@ -156,7 +165,13 @@ export function createPipeline(options: PipelineOptions): Pipeline {
         rooms.set(roomId, room);
       }
 
-      const turn: Turn = { id: event.id, text, at: now, senderId };
+      const turn: Turn = {
+        id: event.id,
+        text,
+        at: now,
+        senderId,
+        speaker: options.resolveSpeaker?.(senderId),
+      };
       const before = room.turns.length;
       room.turns = collectTurn(room.turns, turn);
       if (room.turns.length === before) {

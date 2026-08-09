@@ -3,6 +3,12 @@ export interface Turn {
   text: string;
   at: number;
   senderId?: string;
+  /**
+   * El nombre con el que se presenta quien habló, resuelto desde la presencia del canal.
+   * Va al prompt: sin él, los turnos se numeran por posición en la ventana y la misma
+   * persona cambia de etiqueta entre un lote y el siguiente.
+   */
+  speaker?: string;
 }
 
 /**

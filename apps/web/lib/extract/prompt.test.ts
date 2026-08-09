@@ -12,8 +12,8 @@ const nodes = [
 ];
 
 const turns = [
-  { id: "m_1", text: "So the thing is the latency budget.", at: 1000 },
-  { id: "m_2", text: "Right, and the debounce eats it.", at: 2000 },
+  { id: "m_1", text: "So the thing is the latency budget.", at: 1000, speaker: "Ronald" },
+  { id: "m_2", text: "Right, and the debounce eats it.", at: 2000, speaker: "Giano" },
 ];
 
 describe("el prompt del extractor", () => {
@@ -52,6 +52,32 @@ describe("el prompt del extractor", () => {
 
   it("pide reusar los nombres ya existentes en vez de duplicarlos", () => {
     const prompt = buildPrompt({ turns, nodes });
-    expect(prompt.toLowerCase()).toContain("existing");
+    expect(prompt.toLowerCase()).toContain("reuse the exact name");
+  });
+
+  it("atribuye cada turno a quien lo dijo, por su nombre", () => {
+    // Con «Speaker 1/2/3» numerados por posición en la ventana, la misma persona
+    // cambiaba de etiqueta entre lotes y PROPOSED_BY no tenía a quién apuntar.
+    const prompt = buildPrompt({ turns, nodes });
+
+    expect(prompt).toContain("Ronald: So the thing is the latency budget.");
+    expect(prompt).toContain("Giano: Right, and the debounce eats it.");
+  });
+
+  it("cae a una etiqueta genérica si el roster todavía no conoce a quien habló", () => {
+    const prompt = buildPrompt({
+      turns: [{ id: "m_1", text: "Hello there.", at: 1000 }],
+      nodes,
+    });
+
+    expect(prompt).toContain("Participant: Hello there.");
+  });
+
+  it("dice explícitamente que un grafo vacío no es un error", () => {
+    // El primer lote de una sala siempre llega con la lista vacía; sin esta frase el
+    // modelo se inventa que le falta contexto.
+    const prompt = buildPrompt({ turns, nodes: [] });
+
+    expect(prompt).toContain("the graph is empty");
   });
 });

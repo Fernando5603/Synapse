@@ -8,7 +8,10 @@ export interface WebhookEvent {
   data: {
     type?: unknown;
     content?: unknown;
-    sender?: { id?: unknown };
+    // El remitente del webhook trae más que el id (`anon`, y lo que Portal añada
+    // mañana). Se declara abierto porque esto es la forma de un payload externo, no un
+    // tipo del sistema: cerrarlo obligaría a rippear el filtro cada vez que crezca.
+    sender?: { id?: unknown; [key: string]: unknown };
     ephemeral?: unknown;
   };
 }

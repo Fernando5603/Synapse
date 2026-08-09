@@ -1,7 +1,7 @@
 "use client";
 
 import { useChannel, useInbox } from "@portalsdk/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Message } from "@portalsdk/core";
 import {
   applyDelta,
@@ -12,34 +12,54 @@ import {
 } from "@synapse/graph-core";
 import ChatPanel from "./ChatPanel";
 import GraphCanvas from "./GraphCanvas";
+import LeaveRoom from "./LeaveRoom";
 import PresenceBar from "./PresenceBar";
 import SessionDoc from "./SessionDoc";
 import {
-  AGENT_SKIPPED_TYPE,
-  AGENT_THINKING_TYPE,
+  AGENT_SKIPPED_ACTIVITY,
+  AGENT_THINKING_ACTIVITY,
   CONTRADICTION_NOTICE_TYPE,
   GRAPH_DELTA_TYPE,
   GRAPH_PROPOSAL_TYPE,
+  agentActivity,
   channelIdFor,
   graphWithSnapshot,
-  isAgentEphemeral,
   isChatContent,
-  isCursorContent,
   isDeltaContent,
-  type AgentEphemeralType,
   type ChannelContent,
 } from "@/lib/channel";
 import {
+  cursorsFromActivity,
+  encodeCursorActivity,
   mergeRemoteCursors,
   shouldEmitCursor,
-  type CursorPosition,
 } from "@/lib/cursor";
 import { detailedParticipants, resolveDisplayName } from "@/lib/display";
+import { CHAT_WIDTH, ROSTER_WIDTH, clampWidth, widthFromDragX } from "@/lib/panels";
 
-const CURSOR_EPHEMERAL_INTERVAL = 50;
-const CURSOR_METADATA_INTERVAL = 250;
-// Si el agente no confirma en este tiempo, el banner de "pensando" se limpia solo.
-const AGENT_BANNER_TIMEOUT_MS = 10_000;
+/**
+ * Cada cuánto se anuncia la posición del cursor por el carril de actividad, que es el
+ * único que entrega de verdad (los otros dos están medidos y muertos; el porqué está en
+ * `lib/cursor.ts`).
+ *
+ * 125 ms son las 8 muestras por segundo que se midieron llegando enteras —40 enviadas,
+ * 40 recibidas, hueco medio 138 ms— y que la interpolación de `CursorLayer` convierte en
+ * movimiento continuo. Subir el ritmo no haría el cursor más suave: lo limita el viaje,
+ * no el muestreo.
+ */
+const CURSOR_ACTIVITY_INTERVAL = 125;
+
+/**
+ * Cada cuánto se deja la posición en la metadata de presencia.
+ *
+ * Lento a propósito: la metadata no se re-anuncia a mitad de sesión, así que esto no
+ * mueve ningún cursor. Solo sirve para que quien entre tarde vea dónde está cada uno sin
+ * esperar a que muevan el ratón, porque la metadata sí viaja en la trama de conexión.
+ */
+const CURSOR_METADATA_INTERVAL = 2_000;
+
+const CHAT_WIDTH_KEY = "synapse:chatWidth";
+const ROSTER_COLLAPSED_KEY = "synapse:rosterCollapsed";
 
 // Desde el ticket 06 la extensión mergea esto de verdad: los nodos que aparecen son los
 // que acuña `mergeProposal`, y proponerlo dos veces no duplica nada.
@@ -60,11 +80,25 @@ const DEMO_PROPOSAL: Proposal = {
 export default function Room({
   roomId,
   displayName,
+  onLeave,
 }: {
   roomId: string;
   displayName: string;
+  onLeave: () => void;
 }) {
-  const { messages, send, presence, me, status, setMetadata, ext, typing, sendTyping } = useChannel<ChannelContent>(
+  const {
+    messages,
+    send,
+    presence,
+    me,
+    status,
+    setMetadata,
+    ext,
+    typing,
+    sendTyping,
+    sendActivity,
+    activity,
+  } = useChannel<ChannelContent>(
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
     {
@@ -72,27 +106,10 @@ export default function Room({
       metadata: { displayName },
       history: 200,
       onMessage: (msg) => {
-        if (msg.ephemeral && msg.type === "cursor" && isCursorContent(msg.content)) {
-          const { x, y } = msg.content;
-          setLiveCursors((previous) => {
-            const next = new Map(previous);
-            next.set(msg.sender.id, { x, y });
-            return next;
-          });
-        }
-        // Los efímeros del agente (ticket 08): aviso de estado, nunca silencio.
-        if (isAgentEphemeral(msg)) {
-          setAgentStatus(msg.type);
-        }
-        // Traza de bring-up: separa "el delta no llegó" de "llegó y no se pintó".
-        // Se puede quitar cuando el 05 deje el camino andando solo.
-        if (msg.type.startsWith("graph.")) {
-          console.log("[synapse] recibido:", msg.type, msg.content);
-        }
         if (msg.type === GRAPH_DELTA_TYPE && isDeltaContent(msg.content)) {
           const delta = msg.content;
           console.log(
-            `[synapse] delta v${delta.version}: ${delta.addedNodes.length} nodos, ${delta.addedEdges.length} aristas`,
+            `[synapse] delta v${delta.version}: +${delta.addedNodes.length} nodos, +${delta.addedEdges.length} aristas`,
           );
           setGraph((previous) => applyDelta(previous, delta));
         }
@@ -106,9 +123,7 @@ export default function Room({
 
   const participants = detailedParticipants(presence);
 
-  const [knownNames, setKnownNames] = useState<Map<string, string>>(
-    () => new Map(),
-  );
+  const [knownNames, setKnownNames] = useState<Map<string, string>>(() => new Map());
 
   useEffect(() => {
     if (me === undefined) {
@@ -124,19 +139,13 @@ export default function Room({
           continue;
         }
         next ??= new Map(previous);
-        next.set(
-          participant.id,
-          resolveDisplayName(participant, me, participants),
-        );
+        next.set(participant.id, resolveDisplayName(participant, me, participants));
       }
       return next ?? previous;
     });
   }, [participants, me]);
 
-  const [liveCursors, setLiveCursors] = useState<Map<string, CursorPosition>>(
-    () => new Map(),
-  );
-  const lastEphemeralRef = useRef<number | undefined>(undefined);
+  const lastActivityRef = useRef<number | undefined>(undefined);
   const lastMetadataRef = useRef<number | undefined>(undefined);
 
   // El aviso de contradicción llega como item de inbox dirigido (ticket 11); al
@@ -150,17 +159,20 @@ export default function Room({
     },
   });
 
-  function handleCursorMove(x: number, y: number) {
-    const now = Date.now();
-    if (shouldEmitCursor(lastEphemeralRef.current, now, CURSOR_EPHEMERAL_INTERVAL)) {
-      lastEphemeralRef.current = now;
-      send({ ephemeral: true, type: "cursor", content: { x, y } });
-    }
-    if (shouldEmitCursor(lastMetadataRef.current, now, CURSOR_METADATA_INTERVAL)) {
-      lastMetadataRef.current = now;
-      setMetadata({ displayName, cursor: { x, y } });
-    }
-  }
+  const handleCursorMove = useCallback(
+    (x: number, y: number) => {
+      const now = Date.now();
+      if (shouldEmitCursor(lastActivityRef.current, now, CURSOR_ACTIVITY_INTERVAL)) {
+        lastActivityRef.current = now;
+        sendActivity(encodeCursorActivity(x, y));
+      }
+      if (shouldEmitCursor(lastMetadataRef.current, now, CURSOR_METADATA_INTERVAL)) {
+        lastMetadataRef.current = now;
+        setMetadata({ displayName, cursor: { x, y } });
+      }
+    },
+    [sendActivity, setMetadata, displayName],
+  );
 
   // El grafo se construye aplicando los `graph.delta` que difunde la extensión, que es
   // su dueña. Arranca vacío y se llena por dos caminos que convergen: los deltas que van
@@ -174,12 +186,8 @@ export default function Room({
     setGraph((previous) => graphWithSnapshot(previous, ext));
   }, [ext]);
 
-  // Hasta que el backend sea participante del canal (ticket 05), la única forma de
-  // entregarle una propuesta a la extensión es a mano. El handle del canal vive dentro
-  // del hook, así que la sala lo asoma para poder dispararlo desde la consola:
-  //     await __synapse.propose()
+  // El disparo manual de una propuesta desde la consola: `await __synapse.propose()`.
   useEffect(() => {
-    console.log(`[synapse] canal: ${channelIdFor(roomId)}`);
     const debugWindow = window as unknown as { __synapse?: unknown };
     debugWindow.__synapse = {
       propose: (proposal: Proposal = DEMO_PROPOSAL) =>
@@ -190,52 +198,136 @@ export default function Room({
     };
   }, [send]);
 
-  // El estado del agente llega como efímeros (ticket 08). Los banners se limpian solos:
-  // si el agente no confirma en unos segundos —se saltó el lote, o el proceso murió—,
-  // un banner congelado se leería como un cuelgue, justo lo que el spec prohíbe.
-  const [agentStatus, setAgentStatus] = useState<AgentEphemeralType | null>(null);
-  useEffect(() => {
-    if (agentStatus === null) {
-      return;
-    }
-    const timer = setTimeout(() => setAgentStatus(null), AGENT_BANNER_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [agentStatus]);
-
+  // El estado del agente viaja por el carril de actividad, que expira solo a los 5 s:
+  // el banner no puede quedarse congelado leyéndose como un cuelgue.
+  const agentKind = agentActivity(activity, me?.id);
   const agentBanner =
-    agentStatus === AGENT_THINKING_TYPE
+    agentKind === AGENT_THINKING_ACTIVITY
       ? { kind: "thinking" as const }
-      : agentStatus === AGENT_SKIPPED_TYPE
+      : agentKind === AGENT_SKIPPED_ACTIVITY
         ? { kind: "skipped" as const }
         : null;
 
+  // ── Los paneles ───────────────────────────────────────────────────────────────────
+  const [chatWidth, setChatWidth] = useState<number>(CHAT_WIDTH.initial);
+  const [rosterCollapsed, setRosterCollapsed] = useState(false);
+  const [resizing, setResizing] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(CHAT_WIDTH_KEY);
+      setChatWidth(clampWidth(stored === null ? undefined : Number(stored), CHAT_WIDTH, CHAT_WIDTH.initial));
+      setRosterCollapsed(window.localStorage.getItem(ROSTER_COLLAPSED_KEY) === "1");
+    } catch {
+      // Sin storage (incógnito, iframe, túnel): los paneles arrancan por defecto.
+    }
+  }, []);
+
+  // El arrastre se escucha en `window` y no en el tirador: si el puntero adelanta al
+  // render y se sale del elemento, el redimensionado no debe quedarse pegado a medias.
+  useEffect(() => {
+    if (!resizing) {
+      return;
+    }
+    function onMove(event: PointerEvent) {
+      setChatWidth(widthFromDragX(event.clientX, window.innerWidth));
+    }
+    function onUp() {
+      setResizing(false);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [resizing]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CHAT_WIDTH_KEY, String(chatWidth));
+      window.localStorage.setItem(ROSTER_COLLAPSED_KEY, rosterCollapsed ? "1" : "0");
+    } catch {
+      // Sin storage: la preferencia dura lo que dure la pestaña.
+    }
+  }, [chatWidth, rosterCollapsed]);
+
   return (
-    <main style={{ display: "flex", height: "100vh" }}>
+    <main
+      className="flex h-screen overflow-hidden"
+      // Mientras se arrastra, todo el documento muestra el cursor de redimensionado y
+      // nada selecciona texto: si no, arrastrar sobre el chat marca los mensajes.
+      style={resizing ? { cursor: "col-resize", userSelect: "none" } : undefined}
+    >
       <PresenceBar
         me={me}
         participants={participants}
         status={status}
         graphVersion={graph.version}
+        width={ROSTER_WIDTH.initial}
+        collapsed={rosterCollapsed}
+        onToggle={() => setRosterCollapsed((value) => !value)}
       />
-      <GraphCanvas
-        graph={graph}
-        remoteCursors={mergeRemoteCursors(me, participants, liveCursors)}
-        onCursorMove={handleCursorMove}
-        focusNodeId={focusNodeId}
-      />
-      <ChatPanel
-        messages={chatMessages}
-        me={me}
-        participants={participants}
-        knownNames={knownNames}
-        onSend={(text) => send({ content: { text } })}
-        typing={typing}
-        onTyping={sendTyping}
-        agentBanner={agentBanner}
-        action={
-          <SessionDoc markdown={renderDocument(graph)} />
-        }
-      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-3 border-b border-border glass px-4 py-2.5">
+          <span className="text-sm font-semibold tracking-tight">
+            <span className="text-primary">Synapse</span>
+            <span className="mx-2 text-border">/</span>
+            <span className="text-muted-foreground">{roomId}</span>
+          </span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {graph.nodes.length} nodos · {graph.edges.length} relaciones
+          </span>
+        </header>
+        <GraphCanvas
+          graph={graph}
+          remoteCursors={mergeRemoteCursors(
+            me,
+            participants,
+            cursorsFromActivity(activity, me?.id),
+          )}
+          onCursorMove={handleCursorMove}
+          focusNodeId={focusNodeId}
+        />
+      </div>
+
+      {/* El tirador del chat. Ancho de 5 px pero con una barra visible de 1 px: lo que
+          hay que acertar con el ratón es más grande que lo que se ve. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Ajustar el ancho del chat"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          setResizing(true);
+        }}
+        onDoubleClick={() => setChatWidth(CHAT_WIDTH.initial)}
+        className="group relative w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-primary/60"
+      >
+        <span className="absolute left-1/2 top-1/2 h-8 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted-foreground/40 transition-colors group-hover:bg-primary" />
+      </div>
+
+      <div style={{ width: chatWidth }} className="shrink-0">
+        <ChatPanel
+          messages={chatMessages}
+          me={me}
+          participants={participants}
+          knownNames={knownNames}
+          onSend={(text) => send({ content: { text } })}
+          typing={typing}
+          onTyping={sendTyping}
+          agentBanner={agentBanner}
+          header={
+            <>
+              <SessionDoc markdown={renderDocument(graph)} />
+              <LeaveRoom displayName={displayName} onLeave={onLeave} />
+            </>
+          }
+        />
+      </div>
     </main>
   );
 }

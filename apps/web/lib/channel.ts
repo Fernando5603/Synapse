@@ -39,27 +39,45 @@ export const GRAPH_DELTA_TYPE = "graph.delta";
 /** Tipo de mensaje con el que se le entrega una propuesta a la extensión. */
 export const GRAPH_PROPOSAL_TYPE = "graph.proposal";
 
-/** Efímero del agente: "estoy analizando el lote". */
-export const AGENT_THINKING_TYPE = "agent.thinking";
+/**
+ * El estado del agente viaja por el carril de **actividad**, no por el de efímeros.
+ *
+ * El motivo es del SDK: `MessageBuffer.ingest` (core 0.1.5) descarta todo mensaje con
+ * `ephemeral: true` antes de emitir el evento `message`, así que un efímero se envía pero
+ * no se recibe. La actividad sí se entrega (frame `activity`) y además **expira sola** a
+ * los 5 s, que es justo la semántica que el ticket 08 le pedía al banner: el fallo nunca
+ * es silencio, pero tampoco un cartel congelado.
+ */
+export const AGENT_THINKING_ACTIVITY = "thinking";
 
-/** Efímero del agente: "el lote se descartó, me salté ese turno". */
-export const AGENT_SKIPPED_TYPE = "agent.skipped";
+/** Actividad del agente: "el lote se descartó, me salté ese turno". */
+export const AGENT_SKIPPED_ACTIVITY = "skipped";
 
-/** Los tipos de efímero que emite el agente; el cliente los pinta como banners. */
-export const AGENT_EPHEMERAL_TYPES = [
-  AGENT_THINKING_TYPE,
-  AGENT_SKIPPED_TYPE,
+/** Las clases de actividad que emite el agente; el cliente las pinta como banners. */
+export const AGENT_ACTIVITY_KINDS = [
+  AGENT_THINKING_ACTIVITY,
+  AGENT_SKIPPED_ACTIVITY,
 ] as const;
 
-export type AgentEphemeralType = (typeof AGENT_EPHEMERAL_TYPES)[number];
+export type AgentActivityKind = (typeof AGENT_ACTIVITY_KINDS)[number];
 
-export function isAgentEphemeral(
-  message: { type: string; ephemeral: boolean },
-): message is { type: AgentEphemeralType; ephemeral: true } {
-  return (
-    message.ephemeral === true &&
-    (AGENT_EPHEMERAL_TYPES as readonly string[]).includes(message.type)
+/**
+ * La clase de actividad del agente presente ahora mismo, o `null`.
+ *
+ * "Se saltó un turno" gana sobre "está pensando": si las dos están vivas es que el lote
+ * empezó y terminó mal, y lo que hay que contar es cómo terminó.
+ */
+export function agentActivity(
+  activity: readonly { userId: string; kind: string }[],
+  selfId: string | undefined,
+): AgentActivityKind | null {
+  const kinds = new Set(
+    activity.filter((entry) => entry.userId !== selfId).map((entry) => entry.kind),
   );
+  if (kinds.has(AGENT_SKIPPED_ACTIVITY)) {
+    return AGENT_SKIPPED_ACTIVITY;
+  }
+  return kinds.has(AGENT_THINKING_ACTIVITY) ? AGENT_THINKING_ACTIVITY : null;
 }
 
 /**
@@ -114,11 +132,6 @@ export interface CursorContent {
   y: number;
 }
 
-/** Contenido de un efímero del agente (ticket 08): sin payload, el tipo lo dice todo. */
-export interface AgentSignalContent {
-  signal: true;
-}
-
 /** Contenido del aviso dirigido de contradicción (ticket 11). */
 export interface ContradictionNoticeContent {
   claimId: string;
@@ -131,13 +144,9 @@ export const CONTRADICTION_NOTICE_TYPE = "contradiction.notice";
 export type ChannelContent =
   | ChatContent
   | CursorContent
-  | AgentSignalContent
   | ContradictionNoticeContent
   | Delta
   | Proposal;
-
-/** El content de los efímeros del agente. */
-export const AGENT_SIGNAL_CONTENT: AgentSignalContent = { signal: true };
 
 export function isCursorContent(content: ChannelContent): content is CursorContent {
   return typeof content === "object" && content !== null && "x" in content;

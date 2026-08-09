@@ -15,7 +15,8 @@
     "test:web": "vitest run apps/web",
     "test:eval": "vitest run packages/eval",
     "eval": "npm run eval -w @synapse/eval",
-    "dev:web": "npm run dev -w web"
+    "dev:web": "npm run dev -w web",
+    "webhook:secret": "node scripts/webhook-secret.mjs"
   },
   "devDependencies": {
     "@portalsdk/cli": "^0.5.5",

@@ -53,15 +53,32 @@ pestañas. El agente muestra "El agente está pensando…" en el chat mientras e
 
 ## Si el grafo no se forma
 
-1. `curl http://localhost:3000/api/extractor/report` — si `skipped` sube, el LLM falla
-   (revisa `NEXT_NVIDIA_API_KEY`).
-2. El webhook requiere que **ngrok esté corriendo** (URL `https://731c-...`). Si ngrok se
-   cayó, reinícialo: `npx ngrok http 3000`, copia la NUEVA URL y actualiza
-   `portal.config.ts` (webhooks.url) + `npx portal deploy`.
-3. Cada vez que se reinicia ngrok gratis, la URL cambia — hay que actualizar la config.
+**Primero, siempre:**
 
-## Estado actual de la config (ya desplegada)
+```powershell
+curl http://localhost:3000/api/extractor/report
+```
 
-- Webhook: `https://731c-2800-200-f5b0-f9-5815-1c5f-d120-e21d.ngrok-free.app/api/portal/webhook`
-- `.env.local`: `NEXT_PUBLIC_PORTAL_API_KEY`, `NEXT_NVIDIA_API_KEY`, `PORTAL_SECRET`,
-  `PORTAL_WEBHOOK_SECRET`, `NVIDIA_LLM_MODEL` — todos seteados.
+Devuelve `listo: true/false` y qué clave falta. Las dos formas de quedarse sin nodos son
+mudas por diseño —sin `NEXT_NVIDIA_API_KEY` el extractor se construye en su version que
+siempre falla, sin `PORTAL_WEBHOOK_SECRET` el webhook rechaza cada POST— y las dos dejan
+la sala funcionando con el grafo vacio.
+
+Si dice `listo: false`:
+
+1. **Las claves van en el `.env` de la raiz.** `next.config.mjs` lo carga; no hace falta
+   duplicarlas en `apps/web/.env.local`.
+2. **`PORTAL_WEBHOOK_SECRET` no existe hasta que hay un webhook registrado.** El orden es:
+   ```powershell
+   npx ngrok http 3000            # copia la URL https que imprime
+   # pegala en webhooks.url de portal.config.ts
+   npx portal deploy
+   npm run webhook:secret         # la trae y la escribe en el .env de la raiz
+   ```
+   Y reinicia el dev server para que la lea.
+3. **El id del modelo lleva namespace**: `meta/llama-3.1-8b-instruct`. Sin el prefijo
+   `meta/`, NVIDIA devuelve 404 en cada lote. El endpoint lo avisa en `modelLooksValid`.
+
+Si dice `listo: true` y aun asi no hay nodos, mira `lotes`: si `skipped` sube, el LLM esta
+fallando y la consola del dev server lo dice; si no sube nada, el webhook no llega (ngrok
+caido, o la URL desplegada no es la de ahora).

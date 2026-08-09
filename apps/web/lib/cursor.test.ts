@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   cursorFromMetadata,
+  cursorsFromActivity,
+  decodeCursorActivity,
+  encodeCursorActivity,
   mergeRemoteCursors,
   shouldEmitCursor,
+  stepTowards,
   type CursorPosition,
 } from "./cursor";
 
@@ -129,5 +133,73 @@ describe("la fusión de cursores en vivo con los de la metadata", () => {
     const cursors = mergeRemoteCursors(me, participants, live);
 
     expect(cursors).toHaveLength(0);
+  });
+});
+
+describe("la interpolación del cursor entre muestras de presencia", () => {
+  it("avanza una fracción del camino hacia el objetivo", () => {
+    expect(stepTowards({ x: 0, y: 0 }, { x: 100, y: 50 }, 0.5)).toEqual({
+      x: 50,
+      y: 25,
+    });
+  });
+
+  it("aterriza exactamente en el objetivo cuando ya está encima", () => {
+    // Sin esto el bucle perseguiría un residuo que nunca llega a cero.
+    expect(stepTowards({ x: 99.9, y: 50.1 }, { x: 100, y: 50 }, 0.5)).toEqual({
+      x: 100,
+      y: 50,
+    });
+  });
+
+  it("no se pasa del objetivo", () => {
+    const next = stepTowards({ x: 0, y: 0 }, { x: 10, y: 0 }, 0.25);
+
+    expect(next.x).toBeGreaterThan(0);
+    expect(next.x).toBeLessThan(10);
+  });
+});
+
+describe("el cursor viajando por el carril de actividad", () => {
+  it("va y vuelve por el mismo sitio", () => {
+    expect(decodeCursorActivity(encodeCursorActivity(120, 45))).toEqual({ x: 120, y: 45 });
+  });
+
+  it("redondea: medio píxel no lo ve nadie y alarga el mensaje", () => {
+    expect(encodeCursorActivity(12.4, 45.6)).toBe("xy|12|46");
+  });
+
+  it("no confunde otra actividad con un cursor", () => {
+    for (const kind of ["typing", "thinking", "skipped", "xy|", "xy|a|b"]) {
+      expect(decodeCursorActivity(kind)).toBeUndefined();
+    }
+  });
+
+  it("se queda con la última posición de cada uno, no con la primera", () => {
+    // Las posiciones viejas siguen vivas hasta que expiran a los 5 s; quedarse con la
+    // primera daría un cursor congelado cinco segundos por detrás.
+    const activity = [
+      { userId: "p-2", kind: encodeCursorActivity(10, 10) },
+      { userId: "p-2", kind: encodeCursorActivity(90, 90) },
+    ];
+
+    expect(cursorsFromActivity(activity, "me-1").get("p-2")).toEqual({ x: 90, y: 90 });
+  });
+
+  it("no me pinta mi propio puntero", () => {
+    const activity = [{ userId: "me-1", kind: encodeCursorActivity(10, 10) }];
+
+    expect(cursorsFromActivity(activity, "me-1").size).toBe(0);
+  });
+
+  it("ignora la actividad que no es de cursor", () => {
+    const activity = [
+      { userId: "p-2", kind: "typing" },
+      { userId: "p-3", kind: encodeCursorActivity(5, 5) },
+    ];
+
+    const positions = cursorsFromActivity(activity, "me-1");
+
+    expect([...positions.keys()]).toEqual(["p-3"]);
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { emptyGraph, mergeProposal, type Graph } from "@synapse/graph-core";
-import { graphWithSnapshot } from "./channel";
+import {
+  AGENT_SKIPPED_ACTIVITY,
+  AGENT_THINKING_ACTIVITY,
+  agentActivity,
+  graphWithSnapshot,
+} from "./channel";
 
 /** El grafo que la extensión tendría a mitad de sesión, con su versión. */
 function sessionGraph(): Graph {
@@ -92,5 +97,38 @@ describe("el grafo que ve quien entra a mitad de sesión", () => {
     ]) {
       expect(graphWithSnapshot(local, connectFrame(blob))).toBe(local);
     }
+  });
+});
+
+describe("el estado del agente leído desde la actividad del canal", () => {
+  it("no anuncia nada cuando la sala está tranquila", () => {
+    expect(agentActivity([], "me-1")).toBeNull();
+  });
+
+  it("anuncia que está pensando mientras el lote se extrae", () => {
+    const activity = [{ userId: "agent-1", kind: AGENT_THINKING_ACTIVITY }];
+
+    expect(agentActivity(activity, "me-1")).toBe(AGENT_THINKING_ACTIVITY);
+  });
+
+  it("el descarte gana sobre el pensando: importa cómo terminó el lote", () => {
+    const activity = [
+      { userId: "agent-1", kind: AGENT_THINKING_ACTIVITY },
+      { userId: "agent-1", kind: AGENT_SKIPPED_ACTIVITY },
+    ];
+
+    expect(agentActivity(activity, "me-1")).toBe(AGENT_SKIPPED_ACTIVITY);
+  });
+
+  it("ignora la actividad de otras clases, como escribir", () => {
+    const activity = [{ userId: "p-2", kind: "typing" }];
+
+    expect(agentActivity(activity, "me-1")).toBeNull();
+  });
+
+  it("nadie se anuncia a sí mismo", () => {
+    const activity = [{ userId: "me-1", kind: AGENT_THINKING_ACTIVITY }];
+
+    expect(agentActivity(activity, "me-1")).toBeNull();
   });
 });

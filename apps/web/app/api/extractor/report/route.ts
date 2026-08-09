@@ -15,11 +15,38 @@ function pipelineRuntime(): ReturnType<typeof extractionRuntime> {
 }
 
 /**
- * La métrica del criterio (a): p95 de los lotes completados y porcentaje que salió por
- * la rama de descarte. El spec manda reportarlos por separado, o el número miente.
+ * La métrica del criterio (a) y el estado de la configuración del servidor.
  *
  *     GET /api/extractor/report
+ *
+ * Lo segundo está aquí porque las dos formas de quedarse sin nodos son **mudas** por
+ * diseño: sin `NEXT_NVIDIA_API_KEY` el extractor se construye en su versión que siempre
+ * falla, y sin `PORTAL_WEBHOOK_SECRET` el webhook rechaza cada POST. Las dos dejan la
+ * sala funcionando y el grafo vacío, que es exactamente el síntoma más difícil de
+ * atribuir. Un vistazo a este endpoint lo separa de un problema del LLM o del túnel.
+ *
+ * Solo dice si cada clave **está**, nunca su valor.
  */
 export async function GET(): Promise<Response> {
-  return Response.json(pipelineRuntime().report());
+  const config = {
+    nvidiaApiKey: present(process.env.NEXT_NVIDIA_API_KEY),
+    portalApiKey: present(process.env.NEXT_PUBLIC_PORTAL_API_KEY),
+    webhookSecret: present(process.env.PORTAL_WEBHOOK_SECRET),
+    model: process.env.NVIDIA_LLM_MODEL ?? "(por defecto) meta/llama-3.1-8b-instruct",
+    // El id del modelo lleva namespace. Sin él, NVIDIA devuelve 404 en cada lote.
+    modelLooksValid: (process.env.NVIDIA_LLM_MODEL ?? "meta/x").includes("/"),
+  };
+
+  const listo =
+    config.nvidiaApiKey && config.portalApiKey && config.webhookSecret && config.modelLooksValid;
+
+  return Response.json({
+    listo,
+    config,
+    lotes: pipelineRuntime().report(),
+  });
+}
+
+function present(value: string | undefined): boolean {
+  return value !== undefined && value !== "";
 }

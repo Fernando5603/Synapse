@@ -6,7 +6,7 @@ export default defineConfig({
   // localhost:3000; cambia cada vez que se reinicia ngrok (plan gratis) — actualizarla y
   // `portal deploy` de nuevo. Para producción usar la URL de Railway.
   webhooks: {
-    url: "https://731c-2800-200-f5b0-f9-5815-1c5f-d120-e21d.ngrok-free.app/api/portal/webhook",
+    url: "https://blah-guidance-gloomy.ngrok-free.dev",
   },
   channels: {
     // Un template necesita prefijo fijo, así que el canal de una sala es `room-<slug>`

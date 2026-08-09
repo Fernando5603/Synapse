@@ -1,9 +1,8 @@
 import { detectContradiction, type Proposal } from "@synapse/graph-core";
 import { agentChannel, propose, watchDeltas } from "@/lib/agent";
 import {
-  AGENT_SIGNAL_CONTENT,
-  AGENT_SKIPPED_TYPE,
-  AGENT_THINKING_TYPE,
+  AGENT_SKIPPED_ACTIVITY,
+  AGENT_THINKING_ACTIVITY,
   CONTRADICTION_NOTICE_TYPE,
 } from "@/lib/channel";
 import { createMirror, type GraphMirror } from "./mirror";
@@ -60,6 +59,10 @@ export class ExtractionRuntime {
       retries: this.#options.retries,
       // `propose` no lanza cuando la entrega falla (devuelve `{delta: undefined}`);
       // el arrastre del lote depende de que esto lance.
+      // El nombre de quien habló sale del roster de la sala, que el agente ya está
+      // escuchando por ser participante. No hay petición extra: la presencia detallada
+      // viene en la trama de conexión y se actualiza sola.
+      resolveSpeaker: (senderId: string) => speakerName(roomId, senderId),
       deliver: async (room: string, proposal: Proposal, authorId: string | undefined) => {
         // Contradicción dirigida (ticket 11): antes de entregar, sobre el espejo. Si la
         // propuesta contradice un Claim ajeno, el aviso va a su autor como mensaje
@@ -81,14 +84,18 @@ export class ExtractionRuntime {
           throw new Error(`El agente no recibió el delta de la propuesta de ${room}.`);
         }
       },
-      // Las señales del pipeline se convierten en efímeros del agente por el canal:
-      // "está pensando", "se saltó un turno", "entregó". El fallo nunca es silencio.
+      // Las señales del pipeline se convierten en actividad del agente en el canal:
+      // "está pensando", "se saltó un turno". El fallo nunca es silencio.
+      //
+      // Actividad y no efímero: el SDK descarta los efímeros entrantes (ver `channel.ts`),
+      // así que el carril efímero no llegaba a ninguna pantalla. La actividad se entrega y
+      // expira sola a los 5 s, que es lo que el banner necesitaba de todos modos.
       signals: {
         onThinking: (room) => {
-          agentChannel(room).send({ ephemeral: true, type: AGENT_THINKING_TYPE, content: AGENT_SIGNAL_CONTENT });
+          agentChannel(room).sendActivity(AGENT_THINKING_ACTIVITY);
         },
         onSkipped: (room) => {
-          agentChannel(room).send({ ephemeral: true, type: AGENT_SKIPPED_TYPE, content: AGENT_SIGNAL_CONTENT });
+          agentChannel(room).sendActivity(AGENT_SKIPPED_ACTIVITY);
         },
       },
     });
@@ -128,6 +135,23 @@ export class ExtractionRuntime {
       p95Ms: percentile95(latencies),
     };
   }
+}
+
+/**
+ * El nombre con el que aparece un participante en el roster de la sala, o `undefined`.
+ *
+ * `undefined` no es un fallo: la presencia agregada (salas grandes) no trae participantes,
+ * y quien acaba de conectar puede no estar todavía en el roster que el agente tiene. El
+ * prompt tiene su etiqueta genérica para eso.
+ */
+function speakerName(roomId: string, senderId: string): string | undefined {
+  const presence = agentChannel(roomId).presence;
+  if (presence === undefined || presence.kind !== "detailed") {
+    return undefined;
+  }
+  const participant = presence.participants.find((p) => p.id === senderId);
+  const name = participant?.metadata?.displayName;
+  return typeof name === "string" && name.trim() !== "" ? name : participant?.username;
 }
 
 export function extractionRuntime(options: ExtractionRuntimeOptions): ExtractionRuntime {

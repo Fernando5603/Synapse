@@ -181,7 +181,10 @@ describe("la política de fallo del lote", () => {
   it("estampa el autor del turno en los nodos de la propuesta", async () => {
     vi.useFakeTimers();
     const extractor = {
-      extract: async () => ({ nodes: [{ type: "Claim", name: "El modelo gratis basta" }], edges: [] }),
+      extract: async () => ({
+        nodes: [{ type: "Claim" as const, name: "El modelo gratis basta" }],
+        edges: [],
+      }),
     };
     const mirror = createMirror();
     const seen: { proposal: Proposal; authorId: string | undefined }[] = [];

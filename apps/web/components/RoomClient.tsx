@@ -2,6 +2,7 @@
 
 import { Portal } from "@portalsdk/core";
 import { PortalProvider } from "@portalsdk/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Room from "./Room";
 import { JoinForm } from "./JoinForm";
@@ -34,7 +35,23 @@ function storeName(name: string): void {
   }
 }
 
+/**
+ * Olvida el nombre por los dos caminos por los que se guardó.
+ *
+ * Los dos: limpiar solo `localStorage` dejaría el de memoria en pie y el formulario de
+ * entrada no volvería a salir — que es exactamente el síntoma de "no se puede salir".
+ */
+function forgetName(): void {
+  memoryStore.delete(DISPLAY_NAME_KEY);
+  try {
+    window.localStorage.removeItem(DISPLAY_NAME_KEY);
+  } catch {
+    // Sin storage: con borrar el de memoria basta.
+  }
+}
+
 export default function RoomClient({ roomId }: { roomId: string }) {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,29 +67,42 @@ export default function RoomClient({ roomId }: { roomId: string }) {
   // ocurre en render, antes incluso del formulario de entrada.
   if (portal === null) {
     return (
-      <main style={{ maxWidth: 520, margin: "10vh auto 0", padding: "0 16px" }}>
-        <h1>Synapse</h1>
-        <p>
-          Falta <code>NEXT_PUBLIC_PORTAL_API_KEY</code>. Copia{" "}
-          <code>.env.example</code> a <code>.env.local</code> con la publishable
-          key de Portal (<code>pk_…</code>), o defínela en el entorno del deploy.
+      <main className="mx-auto mt-[10vh] max-w-lg px-4">
+        <h1 className="mb-3 text-2xl font-semibold">Synapse</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Falta <code className="font-mono text-foreground">NEXT_PUBLIC_PORTAL_API_KEY</code>.
+          Copia <code className="font-mono text-foreground">.env.example</code> a{" "}
+          <code className="font-mono text-foreground">.env.local</code> con la publishable
+          key de Portal (<code className="font-mono text-foreground">pk_…</code>), o defínela
+          en el entorno del deploy.
         </p>
       </main>
     );
   }
 
   if (displayName === null) {
-    return <JoinForm onJoin={handleJoin} />;
+    return <JoinForm roomId={roomId} onJoin={handleJoin} onCancel={() => router.push("/")} />;
   }
 
   return (
     <PortalProvider client={portal}>
-      <Room roomId={roomId} displayName={displayName} />
+      <Room roomId={roomId} displayName={displayName} onLeave={handleLeave} />
     </PortalProvider>
   );
 
   function handleJoin(name: string) {
     storeName(name);
     setDisplayName(name);
+  }
+
+  /**
+   * Salir de la sala. Desmontar `Room` desmonta el `useChannel`, que suelta el handle:
+   * el socket se cierra y la presencia deja de anunciar a esta persona. Volver al home
+   * después es lo que evita que el efecto de arranque lea el nombre otra vez y reentre.
+   */
+  function handleLeave() {
+    forgetName();
+    setDisplayName(null);
+    router.push("/");
   }
 }
