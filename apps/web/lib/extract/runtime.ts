@@ -72,11 +72,22 @@ export class ExtractionRuntime {
             ? detectContradiction(mirror.get(), proposal, authorId)
             : null;
         if (hit !== null) {
-          agentChannel(room).send({
-            type: CONTRADICTION_NOTICE_TYPE,
-            content: { claimId: hit.claimId },
-            to: hit.targetUserId,
-          });
+          // El aviso dirigido es best-effort: si el destinatario ya no es miembro del
+          // canal (salió, o el id no es real), Portal rechaza con `not_member`. Ese fallo
+          // no puede romper la entrega de la propuesta — el grafo crece igual, solo sin
+          // la notificación. Se loguea y se sigue.
+          try {
+            await agentChannel(room).send({
+              type: CONTRADICTION_NOTICE_TYPE,
+              content: { claimId: hit.claimId },
+              to: hit.targetUserId,
+            });
+          } catch (error) {
+            console.error(
+              `[synapse] aviso de contradicción no entregado a ${hit.targetUserId}: `,
+              error instanceof Error ? error.message : String(error),
+            );
+          }
         }
 
         const outcome = await propose(room, proposal);

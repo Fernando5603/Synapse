@@ -34,28 +34,25 @@ function pipelineRuntime(): ReturnType<typeof extractionRuntime> {
  * Solo dice si cada clave **está**, nunca su valor.
  */
 export async function GET(): Promise<Response> {
-  const apiKey = process.env.NEXT_NVIDIA_API_KEY;
-  const baseUrl = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1/chat/completions";
+  const apiKey = process.env.NEXT_GROQ_API_KEY;
+  const baseUrl = process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1/chat/completions";
 
   const config = {
     llmApiKey: present(apiKey),
     portalApiKey: present(process.env.NEXT_PUBLIC_PORTAL_API_KEY),
     webhookSecret: present(process.env.PORTAL_WEBHOOK_SECRET),
-    model: process.env.NVIDIA_LLM_MODEL ?? `(por defecto) ${DEFAULT_LLM_MODEL}`,
+    model: process.env.GROQ_LLM_MODEL ?? `(por defecto) ${DEFAULT_LLM_MODEL}`,
     baseUrl,
     /**
      * La key y el endpoint tienen que ser del mismo proveedor.
      *
-     * Sustituye al chequeo de namespace del id del modelo, que era una heurística de
-     * NVIDIA —allí todo id lleva `meta/`— y con Groq da un falso negativo permanente:
-     * `llama-3.3-70b-versatile` no lleva barra. La trampa de ahora es otra: una key de
-     * Groq (`gsk_`) apuntando al endpoint de NVIDIA, o al revés, devuelve 401 en cada
-     * lote y el grafo se queda vacío sin un error a la vista.
+     * Una key de Groq (`gsk_`) apuntando al endpoint de NVIDIA, o al revés, devuelve 401
+     * en cada lote y el grafo se queda vacío sin un error a la vista.
      */
     providerMatches:
       apiKey === undefined || apiKey === ""
         ? false
-        : apiKey.startsWith("nvapi-") === baseUrl.includes("integrate.api.nvidia.com"),
+        : apiKey.startsWith("gsk-") === baseUrl.includes("api.groq.com"),
   };
 
   const listo =
