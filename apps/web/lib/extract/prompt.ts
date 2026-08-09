@@ -2,7 +2,14 @@ import { ENTITY_TYPES, RELATION_TYPES, type Node } from "@synapse/graph-core";
 import type { Turn } from "./buffer";
 
 export interface PromptInput {
+  /** Los turnos del lote: lo único de lo que se extrae. */
   turns: readonly Turn[];
+  /**
+   * Turnos anteriores que **ya se extrajeron**. Van al prompt como contexto para
+   * resolver pronombres y referencias, marcados para que el modelo no vuelva a
+   * extraerlos. Vacío en el primer lote de una sala.
+   */
+  context?: readonly Turn[];
   nodes: readonly Node[];
 }
 
@@ -80,11 +87,27 @@ Response:
  *
  * Prompt y esquema en inglés, con guard de idioma: la extracción se hace en inglés, y
  * una conversación que no lo sea debe devolver una propuesta vacía.
+ *
+ * La conversación va en **dos bloques**, y la separación es una palanca de precisión, no
+ * cosmética. Un turno suelto («thats not true») no se puede extraer sin lo anterior: el
+ * modelo lo emitía como `Claim` literal porque no tenía a qué referirlo. Y al revés, si
+ * los turnos ya extraídos se le dan sin marcar, los vuelve a extraer con otra redacción y
+ * cada re-extracción es un nodo nuevo *y* un fallo de precisión. El contexto entra
+ * etiquetado como tal: sirve para resolver referencias, no para producir nodos.
  */
 export function buildPrompt(input: PromptInput): string {
-  const turns = input.turns
-    .map((turn) => `${turn.speaker ?? "Participant"}: ${turn.text}`)
-    .join("\n");
+  const speak = (turn: Turn) => `${turn.speaker ?? "Participant"}: ${turn.text}`;
+  const turns = input.turns.map(speak).join("\n");
+
+  // El bloque de contexto desaparece del prompt cuando no hay nada anterior: el primer
+  // lote de una sala no debe leer una cabecera que anuncia turnos que no están.
+  const context =
+    input.context !== undefined && input.context.length > 0
+      ? `Earlier turns — CONTEXT ONLY. These were already extracted into the graph above. Use them to resolve pronouns and references ("that", "it", "you"), and do NOT extract anything from them:
+${input.context.map(speak).join("\n")}
+
+`
+      : "";
 
   const existingNodes =
     input.nodes.length > 0
@@ -96,15 +119,17 @@ export function buildPrompt(input: PromptInput): string {
 Nodes already in the graph. If a turn talks about one of these, REUSE THE EXACT NAME below instead of inventing a variant:
 ${existingNodes}
 
-Recent conversation:
+${context}New turns — extract ONLY from these:
 ${turns}
 
 Rules:
 - Only extract from ENGLISH conversation. If the conversation is not in English, return an empty proposal.
-- Extract only what these turns actually say. Never infer, never summarise the topic in general.
+- Extract only what the NEW turns actually say. Never infer, never summarise the topic in general.
+- Whatever the earlier turns said is already in the graph list above. Never re-extract it under a new wording.
 - A name is lowercase with no trailing punctuation: 1 to 3 words for a Concept, up to 10 for the others.
 - Keep the speaker's own wording for a Claim, a Question and a Decision. Do not rephrase into your own terms.
 - Never split one idea into a node for each of its words: "three second debounce" is one Concept, not "debounce" plus "three seconds".
+- Do NOT mine a Concept out of a Claim you are already extracting. If you extract "a small model will drown on a messy transcript", do not also add "small model" and "messy transcript". A Concept earns a node only when it is a topic the conversation keeps coming back to across turns — not a noun that appears inside one sentence.
 - Edges refer to nodes BY NAME, never by id. Every name in an edge must appear either in the list above or in your own "nodes".
 - Prefer few precise nodes over many vague ones: 0 to 6 nodes per response.
 - Entity types: ${ENTITY_TYPES.join(", ")}. Relation types: ${RELATION_TYPES.join(", ")}. Discard anything that does not fit.

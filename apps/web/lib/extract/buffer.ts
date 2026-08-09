@@ -46,5 +46,11 @@ export function batchDue(
  * conversación reciente sin pasarse del presupuesto de R1.
  */
 export function contextWindow(turns: readonly Turn[], size: number): Turn[] {
+  // `slice(-0)` es `slice(0)`: devuelve la lista entera. Pedir cero turnos y recibirlos
+  // todos es justo el fallo que no da error, y aquí un tamaño cero es legítimo — el
+  // hueco de contexto se agota cuando el lote llena la ventana.
+  if (size <= 0) {
+    return [];
+  }
   return turns.slice(-size);
 }

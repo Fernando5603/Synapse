@@ -1,5 +1,6 @@
 import type { Proposal } from "@synapse/graph-core";
 import { collectTurn, contextWindow, type Turn } from "./buffer";
+import { canonicalizeProposal } from "./canonicalize";
 import { classifyWebhook, type WebhookEvent } from "./filter";
 import { buildPrompt } from "./prompt";
 import type { ExtractorClient } from "./llm";
@@ -61,12 +62,22 @@ export interface Pipeline {
 }
 
 interface RoomState {
+  /** Turnos pendientes de extraer: el lote que cerrará el debounce. */
   turns: Turn[];
+  /**
+   * Turnos ya extraídos, del más viejo al más nuevo. Son el contexto del prompt.
+   *
+   * Antes no se guardaban: al confirmar la entrega los turnos se tiraban, así que el
+   * lote siguiente llegaba al LLM sin una sola línea de lo anterior. Con el debounce de
+   * 3 s un lote real es de uno o dos turnos, de modo que la «ventana de 8» nunca tenía
+   * ocho de nada y un turno como «thats not true» se extraía sin saber qué era falso.
+   */
+  context: Turn[];
   timer: ReturnType<typeof setTimeout> | undefined;
   flushing: boolean;
 }
 function emptyRoom(): RoomState {
-  return { turns: [], timer: undefined, flushing: false };
+  return { turns: [], context: [], timer: undefined, flushing: false };
 }
 
 export function createPipeline(options: PipelineOptions): Pipeline {
@@ -105,8 +116,17 @@ export function createPipeline(options: PipelineOptions): Pipeline {
         return;
       }
 
+      // La ventana de `contextSize` se reparte: primero el lote que se va a extraer, y
+      // el hueco que sobre se rellena con los turnos ya extraídos, marcados como
+      // contexto en el prompt. Un lote más grande que la ventana se lleva la ventana
+      // entera y se queda sin contexto, que es lo correcto: lo nuevo manda.
       const window = contextWindow(turns, options.contextSize);
-      const prompt = buildPrompt({ turns: window, nodes: options.mirror.get().nodes });
+      const context = contextWindow(room.context, options.contextSize - window.length);
+      const prompt = buildPrompt({
+        turns: window,
+        context,
+        nodes: options.mirror.get().nodes,
+      });
 
       // "El agente está pensando": el lote empezó a extraerse.
       options.signals?.onThinking?.(roomId);
@@ -114,12 +134,16 @@ export function createPipeline(options: PipelineOptions): Pipeline {
       // Política de fallo (V5): timeout duro vive en el cliente LLM; aquí corre el
       // reintento. Si el lote falla —el LLM o la entrega— se **arrastra**: los turnos
       // no se pierden, y el lote siguiente los vuelve a considerar.
-      const proposal = await extractWithRetry(prompt);
-      if (proposal === undefined) {
+      const raw = await extractWithRetry(prompt);
+      if (raw === undefined) {
         report.skipped += 1;
         options.signals?.onSkipped?.(roomId);
         return; // `room.turns` queda intacto: arrastre.
       }
+
+      // El filtro determinista, entre el saneado del esquema y la fusión. Es puro y no
+      // llama a nadie, así que no toca el presupuesto de latencia del criterio (a).
+      const proposal = canonicalizeProposal(raw, options.mirror.get().nodes);
 
       try {
         // Estampar el autor del turno en los nodos propuestos: sin esto el grafo no sabe
@@ -141,8 +165,14 @@ export function createPipeline(options: PipelineOptions): Pipeline {
       // Entrega confirmada: los turnos del lote ya fueron al LLM. Los que llegaron a
       // mitad de la extracción (o de la entrega) siguen en `room.turns` y se procesan en
       // el lote siguiente; solo se vacía el buffer si no quedó nada nuevo.
+      //
+      // Lo extraído no se tira: pasa a ser el contexto del lote siguiente, recortado a
+      // la ventana para que una sala larga no crezca sin tope. Solo se llega aquí con la
+      // entrega confirmada, así que un lote arrastrado por fallo nunca se da por
+      // contexto — sus turnos siguen pendientes y se volverán a extraer.
       const processedIds = new Set(turns.map((t) => t.id));
       room.turns = room.turns.filter((t) => !processedIds.has(t.id));
+      room.context = contextWindow([...room.context, ...window], options.contextSize);
       if (room.turns.length > 0) {
         schedule(roomId, room);
       }

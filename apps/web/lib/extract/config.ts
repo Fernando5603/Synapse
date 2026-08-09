@@ -15,6 +15,8 @@ export const LLM_FETCH_TIMEOUT_MS = 7_000;
  */
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1/chat/completions";
 export const DEFAULT_LLM_MODEL = "llama-3.3-70b-versatile";
+export const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+
 
 /**
  * El extractor real desde el entorno, o un extractor que siempre falla si falta la key.
@@ -22,14 +24,14 @@ export const DEFAULT_LLM_MODEL = "llama-3.3-70b-versatile";
  * pueden divergir midiendo pipelines distintos.
  */
 export function llmExtractor(): ExtractorClient {
-  const apiKey = process.env.NEXT_GROQ_API_KEY;
+  const apiKey = process.env.NEXT_NVIDIA_API_KEY;
   if (apiKey === undefined || apiKey === "") {
     return { extract: async () => undefined };
   }
   return openAiCompatibleExtractor({
     apiKey,
-    model: process.env.GROQ_LLM_MODEL ?? DEFAULT_LLM_MODEL,
-    baseUrl: process.env.GROQ_BASE_URL ?? GROQ_BASE_URL,
+    model: process.env.NVIDIA_LLM_MODEL ?? DEFAULT_LLM_MODEL,
+    baseUrl: process.env.NVIDIA_BASE_URL ?? NVIDIA_BASE_URL,
     fetchTimeoutMs: LLM_FETCH_TIMEOUT_MS,
   });
 }

@@ -34,14 +34,14 @@ function pipelineRuntime(): ReturnType<typeof extractionRuntime> {
  * Solo dice si cada clave **está**, nunca su valor.
  */
 export async function GET(): Promise<Response> {
-  const apiKey = process.env.NEXT_GROQ_API_KEY;
-  const baseUrl = process.env.GROQ_BASE_URL ?? GROQ_BASE_URL;
+  const apiKey = process.env.NEXT_NVIDIA_API_KEY;
+  const baseUrl = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1/chat/completions";
 
   const config = {
     llmApiKey: present(apiKey),
     portalApiKey: present(process.env.NEXT_PUBLIC_PORTAL_API_KEY),
     webhookSecret: present(process.env.PORTAL_WEBHOOK_SECRET),
-    model: process.env.GROQ_LLM_MODEL ?? `(por defecto) ${DEFAULT_LLM_MODEL}`,
+    model: process.env.NVIDIA_LLM_MODEL ?? `(por defecto) ${DEFAULT_LLM_MODEL}`,
     baseUrl,
     /**
      * La key y el endpoint tienen que ser del mismo proveedor.
@@ -55,7 +55,7 @@ export async function GET(): Promise<Response> {
     providerMatches:
       apiKey === undefined || apiKey === ""
         ? false
-        : apiKey.startsWith("gsk_") === baseUrl.includes("api.groq.com"),
+        : apiKey.startsWith("nvapi-") === baseUrl.includes("integrate.api.nvidia.com"),
   };
 
   const listo =

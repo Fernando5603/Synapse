@@ -20,7 +20,9 @@ const WEBHOOK_PATH = "/api/portal/webhook";
  * Ojo: el entorno de Portal tiene **un solo** webhook. Desplegar la URL de Railway deja
  * al local sin recibir nada, y al revés. Es un cambio de destino, no una suma.
  */
-const WEBHOOK_ORIGIN = "https://blah-guidance-gloomy.ngrok-free.dev";
+const WEBHOOK_ORIGIN = (process.env.PORTAL_WEBHOOK_ORIGIN ?? "http://localhost:3000")
+  .trim()
+  .replace(/\/$/, "");
 
 export default defineConfig({
   webhooks: {

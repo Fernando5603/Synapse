@@ -317,3 +317,72 @@ describe("el p95 del criterio (a)", () => {
     expect(percentile95([50, 80])).toBe(80);
   });
 });
+
+describe("el contexto de los lotes anteriores", () => {
+  /** Corre dos lotes seguidos y devuelve los prompts que vio el extractor. */
+  async function twoBatches(deliverFails = false) {
+    vi.useFakeTimers();
+    const prompts: string[] = [];
+    const pipeline = createPipeline({
+      extractor: {
+        extract: async (prompt: string) => {
+          prompts.push(prompt);
+          return { nodes: [], edges: [] };
+        },
+      },
+      mirror: createMirror(),
+      debounceMs: 3000,
+      contextSize: 8,
+      retries: 0,
+      deliver: async () => {
+        if (deliverFails) {
+          throw new Error("entrega falló");
+        }
+      },
+    });
+
+    await pipeline.onMessage(
+      event({ id: "m_1", data: { ...event().data, content: { text: "oranges are better" } } }),
+      1000,
+    );
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    await pipeline.onMessage(
+      event({ id: "m_2", data: { ...event().data, content: { text: "thats not true" } } }),
+      5000,
+    );
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    return prompts;
+  }
+
+  it("le da al lote siguiente los turnos ya extraídos, marcados como contexto", async () => {
+    // El bug que producía el grafo de la sala: los turnos entregados se tiraban, así que
+    // el modelo veía «thats not true» a solas y lo emitía como Claim porque no tenía
+    // forma de saber qué era falso.
+    const prompts = await twoBatches();
+
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("CONTEXT ONLY");
+    expect(prompts[1]).toContain("oranges are better");
+    expect(prompts[1]).toContain("thats not true");
+  });
+
+  it("el primer lote de una sala no lleva bloque de contexto", async () => {
+    const prompts = await twoBatches();
+
+    expect(prompts[0]).not.toContain("CONTEXT ONLY");
+    expect(prompts[0]).toContain("oranges are better");
+  });
+
+  it("un lote que no se entregó no pasa a contexto: se vuelve a extraer", async () => {
+    // Solo lo confirmado es contexto. Si no, el arrastre de la política del 08 metería
+    // los turnos en el bloque que dice «no extraigas de aquí» y se perderían.
+    const prompts = await twoBatches(true);
+
+    expect(prompts[1]).not.toContain("CONTEXT ONLY");
+    expect(prompts[1]).toContain("oranges are better");
+  });
+});
