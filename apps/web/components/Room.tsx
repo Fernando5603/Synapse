@@ -15,13 +15,17 @@ import GraphCanvas from "./GraphCanvas";
 import PresenceBar from "./PresenceBar";
 import SessionDoc from "./SessionDoc";
 import {
+  AGENT_SKIPPED_TYPE,
+  AGENT_THINKING_TYPE,
   GRAPH_DELTA_TYPE,
   GRAPH_PROPOSAL_TYPE,
   channelIdFor,
   graphWithSnapshot,
+  isAgentEphemeral,
   isChatContent,
   isCursorContent,
   isDeltaContent,
+  type AgentEphemeralType,
   type ChannelContent,
 } from "@/lib/channel";
 import {
@@ -33,6 +37,8 @@ import { detailedParticipants, resolveDisplayName } from "@/lib/display";
 
 const CURSOR_EPHEMERAL_INTERVAL = 50;
 const CURSOR_METADATA_INTERVAL = 250;
+// Si el agente no confirma en este tiempo, el banner de "pensando" se limpia solo.
+const AGENT_BANNER_TIMEOUT_MS = 10_000;
 
 // Desde el ticket 06 la extensión mergea esto de verdad: los nodos que aparecen son los
 // que acuña `mergeProposal`, y proponerlo dos veces no duplica nada.
@@ -72,6 +78,10 @@ export default function Room({
             next.set(msg.sender.id, { x, y });
             return next;
           });
+        }
+        // Los efímeros del agente (ticket 08): aviso de estado, nunca silencio.
+        if (isAgentEphemeral(msg)) {
+          setAgentStatus(msg.type);
         }
         // Traza de bring-up: separa "el delta no llegó" de "llegó y no se pintó".
         // Se puede quitar cuando el 05 deje el camino andando solo.
@@ -168,6 +178,25 @@ export default function Room({
     };
   }, [send]);
 
+  // El estado del agente llega como efímeros (ticket 08). Los banners se limpian solos:
+  // si el agente no confirma en unos segundos —se saltó el lote, o el proceso murió—,
+  // un banner congelado se leería como un cuelgue, justo lo que el spec prohíbe.
+  const [agentStatus, setAgentStatus] = useState<AgentEphemeralType | null>(null);
+  useEffect(() => {
+    if (agentStatus === null) {
+      return;
+    }
+    const timer = setTimeout(() => setAgentStatus(null), AGENT_BANNER_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [agentStatus]);
+
+  const agentBanner =
+    agentStatus === AGENT_THINKING_TYPE
+      ? { kind: "thinking" as const }
+      : agentStatus === AGENT_SKIPPED_TYPE
+        ? { kind: "skipped" as const }
+        : null;
+
   return (
     <main style={{ display: "flex", height: "100vh" }}>
       <PresenceBar
@@ -187,6 +216,7 @@ export default function Room({
         participants={participants}
         knownNames={knownNames}
         onSend={(text) => send({ content: { text } })}
+        agentBanner={agentBanner}
         action={
           <SessionDoc markdown={renderDocument(graph)} />
         }

@@ -8,6 +8,10 @@ import {
   type Participant,
 } from "@/lib/display";
 
+export type AgentBanner =
+  | { kind: "thinking" }
+  | { kind: "skipped" };
+
 export default function ChatPanel({
   messages,
   me,
@@ -15,6 +19,7 @@ export default function ChatPanel({
   knownNames,
   onSend,
   action,
+  agentBanner = null,
 }: {
   messages: readonly Message<{ text: string }>[];
   me: Me | undefined;
@@ -22,6 +27,7 @@ export default function ChatPanel({
   knownNames: ReadonlyMap<string, string>;
   onSend: (text: string) => void;
   action?: React.ReactNode;
+  agentBanner?: AgentBanner | null;
 }) {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -55,6 +61,19 @@ export default function ChatPanel({
         onScroll={handleScroll}
         style={{ flex: 1, overflowY: "auto", padding: 16 }}
       >
+        {agentBanner !== null && (
+          <div
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              marginBottom: 12,
+              fontSize: 13,
+              ...bannerStyle(agentBanner),
+            }}
+          >
+            {bannerText(agentBanner)}
+          </div>
+        )}
         {messages.length === 0 ? (
           <p style={{ color: "#666" }}>Todavía no hay mensajes.</p>
         ) : (
@@ -110,4 +129,22 @@ export default function ChatPanel({
       </form>
     </section>
   );
+}
+
+function bannerStyle(banner: AgentBanner): React.CSSProperties {
+  switch (banner.kind) {
+    case "thinking":
+      return { background: "#eef2ff", color: "#3730a3", border: "1px solid #c7d2fe" };
+    case "skipped":
+      return { background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca" };
+  }
+}
+
+function bannerText(banner: AgentBanner): string {
+  switch (banner.kind) {
+    case "thinking":
+      return "El agente está pensando…";
+    case "skipped":
+      return "El agente se saltó un turno.";
+  }
 }

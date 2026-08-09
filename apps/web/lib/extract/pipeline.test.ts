@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Proposal } from "@synapse/graph-core";
 import { createMirror } from "./mirror";
-import { createPipeline } from "./pipeline";
+import { createPipeline, percentile95 } from "./pipeline";
 import type { WebhookEvent } from "./filter";
 
 afterEach(() => {
@@ -25,6 +25,22 @@ function event(overrides: Partial<WebhookEvent> = {}): WebhookEvent {
 
 function failingExtractor() {
   return { extract: async () => undefined };
+}
+
+function makePipeline(overrides: Partial<Parameters<typeof createPipeline>[0]> = {}) {
+  return createPipeline({
+    extractor: failingExtractor(),
+    mirror: createMirror(),
+    debounceMs: 3000,
+    contextSize: 8,
+    retries: 1,
+    deliver: async () => {},
+    signals: {
+      onThinking: () => {},
+      onSkipped: () => {},
+    },
+    ...overrides,
+  });
 }
 
 describe("el pipeline de extracción", () => {
@@ -160,5 +176,114 @@ describe("la política de fallo del lote", () => {
     await vi.advanceTimersByTimeAsync(3000);
     await Promise.resolve();
     expect(delivered).toHaveLength(2);
+  });
+});
+
+describe("las señales del agente", () => {
+  it("avisa que está pensando cuando el lote empieza a extraerse", async () => {
+    vi.useFakeTimers();
+    const thinking: string[] = [];
+    const pipeline = makePipeline({
+      extractor: { extract: async () => ({ nodes: [], edges: [] }) },
+      signals: { onThinking: (roomId) => thinking.push(roomId) },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(thinking).toEqual(["demo"]);
+  });
+
+  it("avisa que se saltó un turno cuando el lote se descarta", async () => {
+    vi.useFakeTimers();
+    const skipped: string[] = [];
+    const pipeline = makePipeline({
+      signals: { onSkipped: (roomId) => skipped.push(roomId) },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(skipped).toEqual(["demo"]);
+  });
+
+  it("no avisa que se saltó un turno cuando el lote se entregó", async () => {
+    vi.useFakeTimers();
+    const skipped: string[] = [];
+    const pipeline = makePipeline({
+      extractor: { extract: async () => ({ nodes: [], edges: [] }) },
+      signals: { onSkipped: (roomId) => skipped.push(roomId) },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(skipped).toHaveLength(0);
+  });
+});
+
+describe("el reporte del criterio (a)", () => {
+  it("cuenta un lote descartado por el LLM", async () => {
+    vi.useFakeTimers();
+    const pipeline = makePipeline({});
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(pipeline.report().skipped).toBe(1);
+    expect(pipeline.report().completed).toBe(0);
+  });
+
+  it("cuenta un lote completado", async () => {
+    vi.useFakeTimers();
+    const pipeline = makePipeline({
+      extractor: { extract: async () => ({ nodes: [], edges: [] }) },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(pipeline.report().completed).toBe(1);
+    expect(pipeline.report().skipped).toBe(0);
+  });
+
+  it("cuenta el arrastre como un lote descartado en la primera ronda", async () => {
+    vi.useFakeTimers();
+    let extract: () => Promise<Proposal | undefined> = async () => undefined;
+    const pipeline = makePipeline({
+      extractor: { extract: () => extract() },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+    expect(pipeline.report().skipped).toBe(1);
+
+    extract = async () => ({ nodes: [], edges: [] });
+    await pipeline.onMessage(event({ id: "m_2" }), 5000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+    expect(pipeline.report().completed).toBe(1);
+  });
+});
+
+describe("el p95 del criterio (a)", () => {
+  it("es el valor en el percentil 95 de las latencias", () => {
+    const latencies = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    // 10 valores, índice ceil(9.5)-1 = 9 → el último (1000).
+    expect(percentile95(latencies)).toBe(1000);
+  });
+
+  it("es undefined sin ninguna latencia", () => {
+    expect(percentile95([])).toBeUndefined();
+  });
+
+  it("con pocos valores toma el mayor", () => {
+    expect(percentile95([50, 80])).toBe(80);
   });
 });

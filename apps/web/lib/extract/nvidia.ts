@@ -16,9 +16,7 @@ export interface ExtractorClient {
 export interface NvidiaConfig {
   apiKey: string;
   model: string;
-  /** Límite duro de espera. La política de fallo corre aquí (timeout de 8 s). */
-  timeoutMs: number;
-  /** Timeout del fetch subyacente; un poco menos que `timeoutMs` para abortar antes. */
+  /** Timeout del fetch: aborta la llamada al LLM si no contesta a tiempo. */
   fetchTimeoutMs: number;
 }
 

@@ -20,11 +20,32 @@ export interface PipelineOptions {
    * `{delta: undefined}`), así que el llamador la envuelve.
    */
   deliver: (roomId: string, proposal: Proposal) => Promise<void>;
+  /**
+   * Señales de estado del agente. Son puras: deciden *qué* avisar; la emisión del
+   * efímero por el canal es transporte y la hace el runtime.
+   */
+  signals?: {
+    /** El lote empezó a extraerse: "el agente está pensando". */
+    onThinking?: (roomId: string) => void;
+    /** El lote se descartó (LLM o entrega fallaron): "el agente se saltó un turno". */
+    onSkipped?: (roomId: string) => void;
+  };
+}
+
+export interface PipelineReport {
+  /** Lotes completados (el delta de la extensión volvió). */
+  completed: number;
+  /** Lotes descartados por la rama de fallo. */
+  skipped: number;
+  /** Latencias de los lotes completados, para el p95 del criterio (a). */
+  latenciesMs: number[];
 }
 
 export interface Pipeline {
   /** Registra un mensaje del webhook; devuelve la propuesta entregada, o nada. */
   onMessage(event: WebhookEvent, now: number): Promise<unknown>;
+  /** La métrica del criterio (a): completados, descartes y p95. */
+  report(): PipelineReport;
 }
 
 interface RoomState {
@@ -38,6 +59,7 @@ function emptyRoom(): RoomState {
 
 export function createPipeline(options: PipelineOptions): Pipeline {
   const rooms = new Map<string, RoomState>();
+  const report: PipelineReport = { completed: 0, skipped: 0, latenciesMs: [] };
 
   function schedule(roomId: string, room: RoomState) {
     if (room.timer !== undefined) {
@@ -64,6 +86,7 @@ export function createPipeline(options: PipelineOptions): Pipeline {
       return;
     }
     room.flushing = true;
+    const started = Date.now();
     try {
       const turns = room.turns;
       if (turns.length === 0) {
@@ -73,19 +96,29 @@ export function createPipeline(options: PipelineOptions): Pipeline {
       const window = contextWindow(turns, options.contextSize);
       const prompt = buildPrompt({ turns: window, nodes: options.mirror.get().nodes });
 
+      // "El agente está pensando": el lote empezó a extraerse.
+      options.signals?.onThinking?.(roomId);
+
       // Política de fallo (V5): timeout duro vive en el cliente LLM; aquí corre el
       // reintento. Si el lote falla —el LLM o la entrega— se **arrastra**: los turnos
       // no se pierden, y el lote siguiente los vuelve a considerar.
       const proposal = await extractWithRetry(prompt);
       if (proposal === undefined) {
+        report.skipped += 1;
+        options.signals?.onSkipped?.(roomId);
         return; // `room.turns` queda intacto: arrastre.
       }
 
       try {
         await options.deliver(roomId, proposal);
       } catch {
+        report.skipped += 1;
+        options.signals?.onSkipped?.(roomId);
         return; // `room.turns` queda intacto: arrastre.
       }
+
+      report.completed += 1;
+      report.latenciesMs.push(Date.now() - started);
 
       // Entrega confirmada: los turnos del lote ya fueron al LLM. Los que llegaron a
       // mitad de la extracción (o de la entrega) siguen en `room.turns` y se procesan en
@@ -125,5 +158,18 @@ export function createPipeline(options: PipelineOptions): Pipeline {
 
       return null;
     },
+    report(): PipelineReport {
+      return report;
+    },
   };
+}
+
+/** El p95 de un conjunto de latencias, o `undefined` si no hay ninguna. */
+export function percentile95(latencies: readonly number[]): number | undefined {
+  if (latencies.length === 0) {
+    return undefined;
+  }
+  const sorted = [...latencies].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
+  return sorted[index]!;
 }

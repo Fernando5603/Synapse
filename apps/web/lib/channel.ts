@@ -39,6 +39,29 @@ export const GRAPH_DELTA_TYPE = "graph.delta";
 /** Tipo de mensaje con el que se le entrega una propuesta a la extensión. */
 export const GRAPH_PROPOSAL_TYPE = "graph.proposal";
 
+/** Efímero del agente: "estoy analizando el lote". */
+export const AGENT_THINKING_TYPE = "agent.thinking";
+
+/** Efímero del agente: "el lote se descartó, me salté ese turno". */
+export const AGENT_SKIPPED_TYPE = "agent.skipped";
+
+/** Los tipos de efímero que emite el agente; el cliente los pinta como banners. */
+export const AGENT_EPHEMERAL_TYPES = [
+  AGENT_THINKING_TYPE,
+  AGENT_SKIPPED_TYPE,
+] as const;
+
+export type AgentEphemeralType = (typeof AGENT_EPHEMERAL_TYPES)[number];
+
+export function isAgentEphemeral(
+  message: { type: string; ephemeral: boolean },
+): message is { type: AgentEphemeralType; ephemeral: true } {
+  return (
+    message.ephemeral === true &&
+    (AGENT_EPHEMERAL_TYPES as readonly string[]).includes(message.type)
+  );
+}
+
 /**
  * El handle con el que `portal.config.ts` engancha la extensión al canal. El SDK entrega
  * los snapshots de extensión en la trama de conexión indexados por él, así que este
@@ -91,8 +114,21 @@ export interface CursorContent {
   y: number;
 }
 
+/** Contenido de un efímero del agente (ticket 08): sin payload, el tipo lo dice todo. */
+export interface AgentSignalContent {
+  signal: true;
+}
+
 /** Unión de contenidos que viajan por el canal. */
-export type ChannelContent = ChatContent | CursorContent | Delta | Proposal;
+export type ChannelContent =
+  | ChatContent
+  | CursorContent
+  | AgentSignalContent
+  | Delta
+  | Proposal;
+
+/** El content de los efímeros del agente. */
+export const AGENT_SIGNAL_CONTENT: AgentSignalContent = { signal: true };
 
 export function isCursorContent(content: ChannelContent): content is CursorContent {
   return typeof content === "object" && content !== null && "x" in content;

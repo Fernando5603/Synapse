@@ -1,7 +1,12 @@
 import type { Proposal } from "@synapse/graph-core";
 import { agentChannel, propose, watchDeltas } from "@/lib/agent";
+import {
+  AGENT_SIGNAL_CONTENT,
+  AGENT_SKIPPED_TYPE,
+  AGENT_THINKING_TYPE,
+} from "@/lib/channel";
 import { createMirror, type GraphMirror } from "./mirror";
-import { createPipeline, type Pipeline } from "./pipeline";
+import { createPipeline, percentile95, type Pipeline, type PipelineReport } from "./pipeline";
 import type { ExtractorClient } from "./nvidia";
 
 export interface ExtractionRuntimeOptions {
@@ -15,6 +20,13 @@ export interface ExtractionRuntimeOptions {
 interface RoomRuntime {
   mirror: GraphMirror;
   pipeline: Pipeline;
+}
+
+export interface AggregateReport {
+  completed: number;
+  skipped: number;
+  skippedPercent: number;
+  p95Ms: number | undefined;
 }
 
 const globalForRuntime = globalThis as unknown as { __synapseExtraction?: ExtractionRuntime };
@@ -53,6 +65,16 @@ export class ExtractionRuntime {
           throw new Error(`El agente no recibió el delta de la propuesta de ${room}.`);
         }
       },
+      // Las señales del pipeline se convierten en efímeros del agente por el canal:
+      // "está pensando", "se saltó un turno", "entregó". El fallo nunca es silencio.
+      signals: {
+        onThinking: (room) => {
+          agentChannel(room).send({ ephemeral: true, type: AGENT_THINKING_TYPE, content: AGENT_SIGNAL_CONTENT });
+        },
+        onSkipped: (room) => {
+          agentChannel(room).send({ ephemeral: true, type: AGENT_SKIPPED_TYPE, content: AGENT_SIGNAL_CONTENT });
+        },
+      },
     });
 
     // El espejo se alimenta de los deltas autoritativos, nunca de las propias propuestas.
@@ -66,6 +88,29 @@ export class ExtractionRuntime {
     const runtime: RoomRuntime = { mirror, pipeline };
     this.#rooms.set(roomId, runtime);
     return runtime;
+  }
+
+  /**
+   * La métrica del criterio (a) agregada sobre todas las salas: p95 de los lotes que
+   * completaron y porcentaje que salió por la rama de descarte.
+   */
+  report(): AggregateReport {
+    const reports: PipelineReport[] = [];
+    for (const room of this.#rooms.values()) {
+      reports.push(room.pipeline.report());
+    }
+
+    const completed = reports.reduce((sum, r) => sum + r.completed, 0);
+    const skipped = reports.reduce((sum, r) => sum + r.skipped, 0);
+    const total = completed + skipped;
+    const latencies = reports.flatMap((r) => r.latenciesMs);
+
+    return {
+      completed,
+      skipped,
+      skippedPercent: total === 0 ? 0 : (skipped / total) * 100,
+      p95Ms: percentile95(latencies),
+    };
   }
 }
 

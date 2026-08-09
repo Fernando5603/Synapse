@@ -1,18 +1,13 @@
-import { nvidiaExtractor } from "@/lib/extract/nvidia";
 import { extractionRuntime } from "@/lib/extract/runtime";
 import { verifyWebhookSignature } from "@/lib/extract/verify";
 import { classifyWebhook, type WebhookEvent } from "@/lib/extract/filter";
+import { CONTEXT_SIZE, DEBOUNCE_MS, llmExtractor } from "@/lib/extract/config";
 import { roomIdFromChannel } from "@/lib/channel";
 
 // El agente vive en un WebSocket y el webhook lee `process.env`: nada de esto puede correr
 // en el runtime edge ni quedarse resuelto en build.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DEBOUNCE_MS = 3_000;
-const CONTEXT_SIZE = 8;
-const LLM_TIMEOUT_MS = 8_000;
-const LLM_FETCH_TIMEOUT_MS = 7_000;
 
 function secret(): string {
   const value = process.env.PORTAL_WEBHOOK_SECRET;
@@ -26,18 +21,8 @@ function secret(): string {
 }
 
 function pipelineRuntime(): ReturnType<typeof extractionRuntime> {
-  const apiKey = process.env.NEXT_NVIDIA_API_KEY;
-  const model = process.env.NVIDIA_LLM_MODEL ?? "llama-3.1-8b-instruct";
-  if (apiKey === undefined || apiKey === "") {
-    throw new Error("Falta NEXT_NVIDIA_API_KEY.");
-  }
   return extractionRuntime({
-    extractor: nvidiaExtractor({
-      apiKey,
-      model,
-      timeoutMs: LLM_TIMEOUT_MS,
-      fetchTimeoutMs: LLM_FETCH_TIMEOUT_MS,
-    }),
+    extractor: llmExtractor(),
     debounceMs: DEBOUNCE_MS,
     contextSize: CONTEXT_SIZE,
     retries: 1,
