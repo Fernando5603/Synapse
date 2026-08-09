@@ -2,10 +2,11 @@ import { defineConfig } from "@portalsdk/config";
 
 export default defineConfig({
   // Portal entrega un POST firmado por cada mensaje persistido. El handler del webhook
-  // vive en `apps/web/app/api/portal/webhook`. Cambiar la URL al endpoint desplegado
-  // antes de `portal deploy`; el validador solo acepta https (o http para localhost).
+  // vive en `apps/web/app/api/portal/webhook`. Esta URL es de un túnel ngrok hacia
+  // localhost:3000; cambia cada vez que se reinicia ngrok (plan gratis) — actualizarla y
+  // `portal deploy` de nuevo. Para producción usar la URL de Railway.
   webhooks: {
-    url: "http://localhost:3000/api/portal/webhook",
+    url: "https://731c-2800-200-f5b0-f9-5815-1c5f-d120-e21d.ngrok-free.app/api/portal/webhook",
   },
   channels: {
     // Un template necesita prefijo fijo, así que el canal de una sala es `room-<slug>`

@@ -92,3 +92,21 @@ export function buildRoster(
 
   return selfRow === undefined ? otherRows : [selfRow, ...otherRows];
 }
+
+/**
+ * Los nombres de los usuarios que están escribiendo ahora. Excluye a `me` — nadie se
+ * dice a sí mismo que está escribiendo. Los ids vienen del `typing` del SDK de Portal.
+ */
+export function typingNames(
+  typing: readonly string[],
+  me: Me | undefined,
+  participants: readonly Participant[],
+): string[] {
+  return typing
+    .filter((id) => me === undefined || id !== me.id)
+    .map((id) => {
+      const participant = participants.find((p) => p.id === id);
+      return participant !== undefined ? displayNameOf(participant) : resolveDisplayName({ id, anon: true }, me, participants);
+    })
+    .filter((name) => name !== "yo");
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRoster,
   resolveDisplayName,
+  typingNames,
   type Me,
   type Participant,
 } from "./display";
@@ -84,5 +85,25 @@ describe("el roster de la sala", () => {
     const roster = buildRoster(me, participants);
 
     expect(roster.map((row) => row.id)).toEqual(["me-1", "p-2"]);
+  });
+});
+
+describe("quiénes están escribiendo", () => {
+  it("nombra a los que escriben y excluye a mí", () => {
+    const participants = [
+      participant("me-1", { metadata: { displayName: "Yo" } }),
+      participant("p-2", { metadata: { displayName: "Ana" } }),
+      participant("p-3", { metadata: { displayName: "Bruno" } }),
+    ];
+
+    expect(typingNames(["p-2", "me-1"], me, participants)).toEqual(["Ana"]);
+  });
+
+  it("devuelve lista vacía cuando nadie escribe", () => {
+    expect(typingNames([], me, [])).toEqual([]);
+  });
+
+  it("un usuario que no está en el roster conserva un nombre estable", () => {
+    expect(typingNames(["p-xyz987"], me, [])).toEqual(["anon-p-xy"]);
   });
 });

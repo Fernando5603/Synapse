@@ -15,7 +15,7 @@ export function llmExtractor(): ExtractorClient {
   if (apiKey === undefined || apiKey === "") {
     return { extract: async () => undefined };
   }
-  const model = process.env.NVIDIA_LLM_MODEL ?? "llama-3.1-8b-instruct";
+  const model = process.env.NVIDIA_LLM_MODEL ?? "meta/llama-3.1-8b-instruct";
   return nvidiaExtractor({
     apiKey,
     model,

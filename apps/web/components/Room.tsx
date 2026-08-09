@@ -64,7 +64,7 @@ export default function Room({
   roomId: string;
   displayName: string;
 }) {
-  const { messages, send, presence, me, status, setMetadata, ext } = useChannel<ChannelContent>(
+  const { messages, send, presence, me, status, setMetadata, ext, typing, sendTyping } = useChannel<ChannelContent>(
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
     {
@@ -229,6 +229,8 @@ export default function Room({
         participants={participants}
         knownNames={knownNames}
         onSend={(text) => send({ content: { text } })}
+        typing={typing}
+        onTyping={sendTyping}
         agentBanner={agentBanner}
         action={
           <SessionDoc markdown={renderDocument(graph)} />
