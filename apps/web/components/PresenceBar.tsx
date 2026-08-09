@@ -7,10 +7,13 @@ export default function PresenceBar({
   me,
   participants,
   status,
+  graphVersion,
 }: {
   me: Me | undefined;
   participants: Participant[];
   status: ChannelStatus;
+  /** Versión del último `graph.delta` aplicado: dice si esta pantalla está al día. */
+  graphVersion: number;
 }) {
   if (me === undefined) {
     return (
@@ -37,6 +40,20 @@ export default function PresenceBar({
       </ul>
       <p style={{ fontSize: 12, color: "#666", marginTop: 16 }}>
         {statusLabel(status)}
+      </p>
+      <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+        Grafo{" "}
+        <span
+          title="Versión del último delta recibido"
+          style={{
+            background: "#eef1f8",
+            borderRadius: 4,
+            padding: "1px 6px",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          v{graphVersion}
+        </span>
       </p>
     </aside>
   );

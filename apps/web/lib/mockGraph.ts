@@ -1,10 +1,12 @@
 import type { EntityType, Graph, RelationType } from "@synapse/graph-core";
 
 /**
- * Grafo de ejemplo con el tamaño de una sesión real (~40 nodos), para ver y
- * tocar el render de exploración mientras la extensión que emite deltas (04)
- * y el grafo autoritativo (06) no existen. Cuando aterricen, este mock se
- * sustituye por la fuente real; GraphCanvas no cambia.
+ * Grafo de ejemplo con el tamaño de una sesión real (~40 nodos).
+ *
+ * Desde el ticket 04 la sala se alimenta de los `graph.delta` de la extensión, así que
+ * esto ya no cuelga de `Room`. Se queda como fixture: hasta que el extractor real (07)
+ * llene el grafo, es la única forma de mirar el render a escala de sesión y comprobar
+ * que 40 nodos siguen siendo legibles.
  */
 export function mockSessionGraph(): Graph {
   const entities: { name: string; type: EntityType }[] = [

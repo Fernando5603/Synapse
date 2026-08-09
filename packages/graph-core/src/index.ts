@@ -11,5 +11,6 @@ export type {
   RelationType,
 } from "./types.js";
 
+export { applyDelta } from "./delta.js";
 export { emptyGraph, mergeProposal } from "./merge.js";
 export { renderDocument } from "./document.js";

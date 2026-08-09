@@ -7,7 +7,8 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "npm run typecheck -w @synapse/graph-core && npm run typecheck -w web",
+    "typecheck": "npm run typecheck -w @synapse/graph-core && npm run typecheck -w web && tsc --noEmit -p tsconfig.extensions.json",
+    "deploy:portal": "portal deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:graph-core": "vitest run packages/graph-core",
@@ -15,6 +16,9 @@
     "dev:web": "npm run dev -w web"
   },
   "devDependencies": {
+    "@portalsdk/cli": "^0.5.5",
+    "@portalsdk/config": "^0.2.1",
+    "@portalsdk/extension-protocol": "^0.1.0",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }

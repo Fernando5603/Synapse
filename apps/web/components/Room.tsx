@@ -3,22 +3,50 @@
 import { useChannel } from "@portalsdk/react";
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@portalsdk/core";
-import { renderDocument } from "@synapse/graph-core";
+import {
+  applyDelta,
+  emptyGraph,
+  renderDocument,
+  type Graph,
+  type Proposal,
+} from "@synapse/graph-core";
 import ChatPanel from "./ChatPanel";
 import GraphCanvas from "./GraphCanvas";
 import PresenceBar from "./PresenceBar";
 import SessionDoc from "./SessionDoc";
-import { isChatContent, isCursorContent, type ChannelContent } from "@/lib/channel";
+import {
+  GRAPH_DELTA_TYPE,
+  GRAPH_PROPOSAL_TYPE,
+  isChatContent,
+  isCursorContent,
+  isDeltaContent,
+  type ChannelContent,
+} from "@/lib/channel";
 import {
   mergeRemoteCursors,
   shouldEmitCursor,
   type CursorPosition,
 } from "@/lib/cursor";
 import { detailedParticipants, resolveDisplayName } from "@/lib/display";
-import { mockSessionGraph } from "@/lib/mockGraph";
 
 const CURSOR_EPHEMERAL_INTERVAL = 50;
 const CURSOR_METADATA_INTERVAL = 250;
+
+// La extensión todavía ignora el contenido y devuelve un delta fijo (ticket 04), así que
+// esto solo tiene que ser una `Proposal` con la forma del contrato.
+const DEMO_PROPOSAL: Proposal = {
+  nodes: [
+    { type: "Concept", name: "latency" },
+    { type: "Claim", name: "latency matters more than perfection" },
+  ],
+  edges: [
+    {
+      type: "ELABORATES",
+      from: "latency matters more than perfection",
+      to: "latency",
+    },
+  ],
+};
 
 export default function Room({
   roomId,
@@ -31,7 +59,10 @@ export default function Room({
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
     {
-      channelId: roomId,
+      // El prefijo no es decorativo: `portal.config.ts` engancha la extensión con el
+      // template `room-*`, y un template de Portal exige prefijo fijo. Un slug pelado
+      // dejaría la sala sin `graph-owner`.
+      channelId: `room-${roomId}`,
       metadata: { displayName },
       history: 200,
       onMessage: (msg) => {
@@ -42,6 +73,10 @@ export default function Room({
             next.set(msg.sender.id, { x, y });
             return next;
           });
+        }
+        if (msg.type === GRAPH_DELTA_TYPE && isDeltaContent(msg.content)) {
+          const delta = msg.content;
+          setGraph((previous) => applyDelta(previous, delta));
         }
       },
     },
@@ -98,13 +133,34 @@ export default function Room({
     }
   }
 
-  // Datos estáticos con el tamaño de una sesión real mientras 04/06 no existen;
-  // cuando aterricen, esta fuente se sustituye por el grafo autoritativo.
-  const [graph] = useState(() => mockSessionGraph());
+  // El grafo se construye aplicando los `graph.delta` que difunde la extensión, que es
+  // su dueña. Arranca vacío: quien entra a mitad de sesión no lo reconstruye desde el
+  // historial —eso lo resuelve el `onSnapshot` del ticket 06—, se llena con lo que llega.
+  const [graph, setGraph] = useState<Graph>(emptyGraph);
+
+  // Hasta que el backend sea participante del canal (ticket 05), la única forma de
+  // entregarle una propuesta a la extensión es a mano. El handle del canal vive dentro
+  // del hook, así que la sala lo asoma para poder dispararlo desde la consola:
+  //     await __synapse.propose()
+  useEffect(() => {
+    const debugWindow = window as unknown as { __synapse?: unknown };
+    debugWindow.__synapse = {
+      propose: (proposal: Proposal = DEMO_PROPOSAL) =>
+        send({ type: GRAPH_PROPOSAL_TYPE, content: proposal }),
+    };
+    return () => {
+      delete debugWindow.__synapse;
+    };
+  }, [send]);
 
   return (
     <main style={{ display: "flex", height: "100vh" }}>
-      <PresenceBar me={me} participants={participants} status={status} />
+      <PresenceBar
+        me={me}
+        participants={participants}
+        status={status}
+        graphVersion={graph.version}
+      />
       <GraphCanvas
         graph={graph}
         remoteCursors={mergeRemoteCursors(me, participants, liveCursors)}
