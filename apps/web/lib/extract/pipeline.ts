@@ -2,7 +2,7 @@ import type { Proposal } from "@synapse/graph-core";
 import { collectTurn, contextWindow, type Turn } from "./buffer";
 import { classifyWebhook, type WebhookEvent } from "./filter";
 import { buildPrompt } from "./prompt";
-import type { ExtractorClient } from "./nvidia";
+import type { ExtractorClient } from "./llm";
 import type { GraphMirror } from "./mirror";
 
 export interface PipelineOptions {

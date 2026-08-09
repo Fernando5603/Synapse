@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
  * Carga el `.env` de la raíz del monorepo.
  *
  * Next lee los `.env` de **su propio** directorio (`apps/web`), no del workspace. Con las
- * claves solo en la raíz, `process.env.NEXT_NVIDIA_API_KEY` y `PORTAL_WEBHOOK_SECRET`
+ * claves solo en la raíz, `process.env.NEXT_GROQ_API_KEY` y `PORTAL_WEBHOOK_SECRET`
  * llegaban vacías al servidor: el extractor se construía en su versión que siempre falla
  * y el webhook rechazaba cada POST, así que no se extraía ni un nodo — sin un solo error
  * a la vista, porque las dos rutas están escritas para no romper la sala.

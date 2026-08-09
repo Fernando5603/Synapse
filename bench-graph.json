@@ -1,0 +1,472 @@
+{
+  "nodes": [
+    {
+      "id": "concept-generativ-ai",
+      "type": "Concept",
+      "name": "generative ai"
+    },
+    {
+      "id": "concept-extraction",
+      "type": "Concept",
+      "name": "extraction"
+    },
+    {
+      "id": "concept-llm",
+      "type": "Concept",
+      "name": "llm"
+    },
+    {
+      "id": "concept-latency",
+      "type": "Concept",
+      "name": "latency"
+    },
+    {
+      "id": "concept-extraction-quality",
+      "type": "Concept",
+      "name": "extraction quality"
+    },
+    {
+      "id": "claim-latency-matter-mor-than-perfection",
+      "type": "Claim",
+      "name": "latency matters more than perfection"
+    },
+    {
+      "id": "claim-small-model-will-drown-on-messy-chat-transcript",
+      "type": "Claim",
+      "name": "a small model will drown on a messy chat transcript"
+    },
+    {
+      "id": "question-what-evidenc-do-we-hav",
+      "type": "Question",
+      "name": "what evidence do we have"
+    },
+    {
+      "id": "person-ronald",
+      "type": "Person",
+      "name": "ronald"
+    },
+    {
+      "id": "person-giano",
+      "type": "Person",
+      "name": "giano"
+    },
+    {
+      "id": "person-fernando",
+      "type": "Person",
+      "name": "fernando"
+    },
+    {
+      "id": "concept-sdk-bundl",
+      "type": "Concept",
+      "name": "sdk bundle"
+    },
+    {
+      "id": "evidence-fre-model-answer-in-two-seconds-big-one-tak-eight",
+      "type": "Evidence",
+      "name": "a free model answers in two seconds, the big one takes eight"
+    },
+    {
+      "id": "concept-closed-schema",
+      "type": "Concept",
+      "name": "closed schema"
+    },
+    {
+      "id": "concept-closed-vocabulary",
+      "type": "Concept",
+      "name": "closed vocabulary"
+    },
+    {
+      "id": "concept-prompt-quality",
+      "type": "Concept",
+      "name": "prompt quality"
+    },
+    {
+      "id": "claim-schema-is-only-as-good-as-prompt",
+      "type": "Claim",
+      "name": "the schema is only as good as the prompt"
+    },
+    {
+      "id": "claim-writing-good-prompt-for-small-model-is-harder",
+      "type": "Claim",
+      "name": "writing a good prompt for a small model is harder"
+    },
+    {
+      "id": "decision-test-prompt-against-recorded-debat",
+      "type": "Decision",
+      "name": "test the prompt against a recorded debate"
+    },
+    {
+      "id": "claim-testing-cost-tim-we-do-not-hav",
+      "type": "Claim",
+      "name": "testing costs time we do not have"
+    },
+    {
+      "id": "claim-canva-is-useless-if-graph-is-garbag",
+      "type": "Claim",
+      "name": "the canvas is useless if the graph is garbage"
+    },
+    {
+      "id": "concept-evaluation-script",
+      "type": "Concept",
+      "name": "evaluation script"
+    },
+    {
+      "id": "concept-hybrid-pipelin",
+      "type": "Concept",
+      "name": "hybrid pipeline"
+    },
+    {
+      "id": "concept-liv-graph",
+      "type": "Concept",
+      "name": "live graph"
+    },
+    {
+      "id": "concept-failur-mod",
+      "type": "Concept",
+      "name": "failure mode"
+    },
+    {
+      "id": "claim-rejecting-hybrid-becaus-it-has-two-part-is-lazy",
+      "type": "Claim",
+      "name": "rejecting a hybrid because it has two parts is lazy"
+    },
+    {
+      "id": "decision-defin-what-liv-graph-need",
+      "type": "Decision",
+      "name": "define what the live graph needs"
+    },
+    {
+      "id": "evidence-delta-must-appear-within-fiv-second",
+      "type": "Evidence",
+      "name": "a delta must appear within five seconds"
+    },
+    {
+      "id": "concept-liv-path",
+      "type": "Concept",
+      "name": "live path"
+    },
+    {
+      "id": "concept-thre-second-debounc",
+      "type": "Concept",
+      "name": "three second debounce"
+    },
+    {
+      "id": "decision-liv-path-use-fre-model-final-document-use-capabl-model",
+      "type": "Decision",
+      "name": "the live path uses the free model, the final document uses the capable model"
+    },
+    {
+      "id": "claim-we-decided-who-not-what",
+      "type": "Claim",
+      "name": "we decided the who, not the what"
+    },
+    {
+      "id": "question-what-extraction-doe-document-need",
+      "type": "Question",
+      "name": "what extraction does the document need"
+    },
+    {
+      "id": "concept-singl-sourc-of-truth",
+      "type": "Concept",
+      "name": "single source of truth"
+    },
+    {
+      "id": "claim-document-is-just-renderer-over-graph",
+      "type": "Claim",
+      "name": "the document is just a renderer over the graph"
+    },
+    {
+      "id": "question-who-decided-that-list-and-why-is-decision-in-ther",
+      "type": "Question",
+      "name": "who decided that list, and why is Decision in there"
+    },
+    {
+      "id": "concept-extraction-contradiction",
+      "type": "Concept",
+      "name": "extraction contradiction"
+    },
+    {
+      "id": "claim-unanswerabl-question-is-real-signal",
+      "type": "Claim",
+      "name": "an unanswerable question is a real signal"
+    },
+    {
+      "id": "question-doe-contradict-hav-sam-logic",
+      "type": "Question",
+      "name": "does contradicts have the same logic"
+    },
+    {
+      "id": "question-what-happen-when-small-model-cannot-answer-in-eight-second",
+      "type": "Question",
+      "name": "what happens when the small model cannot answer in eight seconds"
+    },
+    {
+      "id": "concept-hard-timeout",
+      "type": "Concept",
+      "name": "hard timeout"
+    },
+    {
+      "id": "concept-unresolved-contradiction-section",
+      "type": "Concept",
+      "name": "unresolved contradictions section"
+    },
+    {
+      "id": "claim-dropping-batch-keep-room-aliv",
+      "type": "Claim",
+      "name": "dropping the batch keeps the room alive"
+    },
+    {
+      "id": "claim-skipped-turn-must-resurfac-or-conversation-silently-los-content",
+      "type": "Claim",
+      "name": "the skipped turns must resurface or the conversation silently loses content"
+    },
+    {
+      "id": "concept-failur-policy",
+      "type": "Concept",
+      "name": "failure policy"
+    },
+    {
+      "id": "decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not",
+      "type": "Decision",
+      "name": "eight second timeout, one retry, carryover, and an ephemeral note"
+    },
+    {
+      "id": "claim-failur-must-never-be-silent",
+      "type": "Claim",
+      "name": "failure must never be silent"
+    },
+    {
+      "id": "claim-resurfacing-is-implementation-detail",
+      "type": "Claim",
+      "name": "resurfacing is an implementation detail"
+    },
+    {
+      "id": "question-can-we-swap",
+      "type": "Question",
+      "name": "can we swap"
+    },
+    {
+      "id": "concept-provider",
+      "type": "Concept",
+      "name": "provider"
+    },
+    {
+      "id": "concept-nvidia-build",
+      "type": "Concept",
+      "name": "nvidia build"
+    },
+    {
+      "id": "concept-llama-3-1-8b",
+      "type": "Concept",
+      "name": "llama-3.1-8b"
+    },
+    {
+      "id": "decision-small-fast-model-live-larg-model-for-final-document-frozen-schema-failur-policy-that-never-goe-silent-and-frozen-gold-transcript",
+      "type": "Decision",
+      "name": "small fast model live, large model for the final document, a frozen schema, a failure policy that never goes silent, and a frozen gold transcript"
+    },
+    {
+      "id": "question-are-we-tied-to-llama-3-1-8b-or-can-we-swap",
+      "type": "Question",
+      "name": "are we tied to llama-3.1-8b or can we swap"
+    },
+    {
+      "id": "claim-prompt-is-contract-not-vendor",
+      "type": "Claim",
+      "name": "the prompt is the contract, not the vendor"
+    },
+    {
+      "id": "claim-freezing-gold-befor-we-tun-prompt-is-only-honest-order",
+      "type": "Claim",
+      "name": "freezing the gold before we tune the prompt is the only honest order"
+    },
+    {
+      "id": "concept-frozen-gold-transcript",
+      "type": "Concept",
+      "name": "frozen gold transcript"
+    }
+  ],
+  "edges": [
+    {
+      "id": "contradicts-claim-small-model-will-drown-on-messy-chat-transcript-claim-latency-matter-mor-than-perfection",
+      "type": "CONTRADICTS",
+      "from": "claim-small-model-will-drown-on-messy-chat-transcript",
+      "to": "claim-latency-matter-mor-than-perfection"
+    },
+    {
+      "id": "proposed_by-claim-latency-matter-mor-than-perfection-person-giano",
+      "type": "PROPOSED_BY",
+      "from": "claim-latency-matter-mor-than-perfection",
+      "to": "person-giano"
+    },
+    {
+      "id": "proposed_by-claim-small-model-will-drown-on-messy-chat-transcript-person-fernando",
+      "type": "PROPOSED_BY",
+      "from": "claim-small-model-will-drown-on-messy-chat-transcript",
+      "to": "person-fernando"
+    },
+    {
+      "id": "proposed_by-question-what-evidenc-do-we-hav-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "question-what-evidenc-do-we-hav",
+      "to": "person-ronald"
+    },
+    {
+      "id": "supports-evidence-fre-model-answer-in-two-seconds-big-one-tak-eight-claim-latency-matter-mor-than-perfection",
+      "type": "SUPPORTS",
+      "from": "evidence-fre-model-answer-in-two-seconds-big-one-tak-eight",
+      "to": "claim-latency-matter-mor-than-perfection"
+    },
+    {
+      "id": "elaborates-claim-schema-is-only-as-good-as-prompt-concept-closed-schema",
+      "type": "ELABORATES",
+      "from": "claim-schema-is-only-as-good-as-prompt",
+      "to": "concept-closed-schema"
+    },
+    {
+      "id": "supports-claim-canva-is-useless-if-graph-is-garbag-concept-evaluation-script",
+      "type": "SUPPORTS",
+      "from": "claim-canva-is-useless-if-graph-is-garbag",
+      "to": "concept-evaluation-script"
+    },
+    {
+      "id": "contradicts-claim-testing-cost-tim-we-do-not-hav-decision-test-prompt-against-recorded-debat",
+      "type": "CONTRADICTS",
+      "from": "claim-testing-cost-tim-we-do-not-hav",
+      "to": "decision-test-prompt-against-recorded-debat"
+    },
+    {
+      "id": "proposed_by-decision-test-prompt-against-recorded-debat-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "decision-test-prompt-against-recorded-debat",
+      "to": "person-ronald"
+    },
+    {
+      "id": "supports-evidence-delta-must-appear-within-fiv-second-decision-defin-what-liv-graph-need",
+      "type": "SUPPORTS",
+      "from": "evidence-delta-must-appear-within-fiv-second",
+      "to": "decision-defin-what-liv-graph-need"
+    },
+    {
+      "id": "proposed_by-concept-hybrid-pipelin-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "concept-hybrid-pipelin",
+      "to": "person-ronald"
+    },
+    {
+      "id": "supports-evidence-delta-must-appear-within-fiv-second-decision-liv-path-use-fre-model-final-document-use-capabl-model",
+      "type": "SUPPORTS",
+      "from": "evidence-delta-must-appear-within-fiv-second",
+      "to": "decision-liv-path-use-fre-model-final-document-use-capabl-model"
+    },
+    {
+      "id": "elaborates-concept-thre-second-debounc-evidence-delta-must-appear-within-fiv-second",
+      "type": "ELABORATES",
+      "from": "concept-thre-second-debounc",
+      "to": "evidence-delta-must-appear-within-fiv-second"
+    },
+    {
+      "id": "contradicts-claim-we-decided-who-not-what-decision-liv-path-use-fre-model-final-document-use-capabl-model",
+      "type": "CONTRADICTS",
+      "from": "claim-we-decided-who-not-what",
+      "to": "decision-liv-path-use-fre-model-final-document-use-capabl-model"
+    },
+    {
+      "id": "proposed_by-decision-liv-path-use-fre-model-final-document-use-capabl-model-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "decision-liv-path-use-fre-model-final-document-use-capabl-model",
+      "to": "person-ronald"
+    },
+    {
+      "id": "proposed_by-claim-we-decided-who-not-what-person-giano",
+      "type": "PROPOSED_BY",
+      "from": "claim-we-decided-who-not-what",
+      "to": "person-giano"
+    },
+    {
+      "id": "supports-decision-liv-path-use-fre-model-final-document-use-capabl-model-claim-document-is-just-renderer-over-graph",
+      "type": "SUPPORTS",
+      "from": "decision-liv-path-use-fre-model-final-document-use-capabl-model",
+      "to": "claim-document-is-just-renderer-over-graph"
+    },
+    {
+      "id": "proposed_by-claim-document-is-just-renderer-over-graph-person-giano",
+      "type": "PROPOSED_BY",
+      "from": "claim-document-is-just-renderer-over-graph",
+      "to": "person-giano"
+    },
+    {
+      "id": "proposed_by-question-who-decided-that-list-and-why-is-decision-in-ther-person-fernando",
+      "type": "PROPOSED_BY",
+      "from": "question-who-decided-that-list-and-why-is-decision-in-ther",
+      "to": "person-fernando"
+    },
+    {
+      "id": "supports-claim-unanswerabl-question-is-real-signal-question-what-happen-when-small-model-cannot-answer-in-eight-second",
+      "type": "SUPPORTS",
+      "from": "claim-unanswerabl-question-is-real-signal",
+      "to": "question-what-happen-when-small-model-cannot-answer-in-eight-second"
+    },
+    {
+      "id": "answers-decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not-question-what-happen-when-small-model-cannot-answer-in-eight-second",
+      "type": "ANSWERS",
+      "from": "decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not",
+      "to": "question-what-happen-when-small-model-cannot-answer-in-eight-second"
+    },
+    {
+      "id": "supports-claim-dropping-batch-keep-room-aliv-decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not",
+      "type": "SUPPORTS",
+      "from": "claim-dropping-batch-keep-room-aliv",
+      "to": "decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not"
+    },
+    {
+      "id": "supports-claim-skipped-turn-must-resurfac-or-conversation-silently-los-content-decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not",
+      "type": "SUPPORTS",
+      "from": "claim-skipped-turn-must-resurfac-or-conversation-silently-los-content",
+      "to": "decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not"
+    },
+    {
+      "id": "elaborates-claim-failur-must-never-be-silent-concept-failur-policy",
+      "type": "ELABORATES",
+      "from": "claim-failur-must-never-be-silent",
+      "to": "concept-failur-policy"
+    },
+    {
+      "id": "proposed_by-decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "decision-eight-second-timeout-one-retry-carryover-and-ephemeral-not",
+      "to": "person-ronald"
+    },
+    {
+      "id": "supports-claim-failur-must-never-be-silent-decision-small-fast-model-live-larg-model-for-final-document-frozen-schema-failur-policy-that-never-goe-silent-and-frozen-gold-transcript",
+      "type": "SUPPORTS",
+      "from": "claim-failur-must-never-be-silent",
+      "to": "decision-small-fast-model-live-larg-model-for-final-document-frozen-schema-failur-policy-that-never-goe-silent-and-frozen-gold-transcript"
+    },
+    {
+      "id": "proposed_by-decision-small-fast-model-live-larg-model-for-final-document-frozen-schema-failur-policy-that-never-goe-silent-and-frozen-gold-transcript-person-ronald",
+      "type": "PROPOSED_BY",
+      "from": "decision-small-fast-model-live-larg-model-for-final-document-frozen-schema-failur-policy-that-never-goe-silent-and-frozen-gold-transcript",
+      "to": "person-ronald"
+    },
+    {
+      "id": "proposed_by-question-are-we-tied-to-llama-3-1-8b-or-can-we-swap-person-giano",
+      "type": "PROPOSED_BY",
+      "from": "question-are-we-tied-to-llama-3-1-8b-or-can-we-swap",
+      "to": "person-giano"
+    },
+    {
+      "id": "proposed_by-claim-prompt-is-contract-not-vendor-person-fernando",
+      "type": "PROPOSED_BY",
+      "from": "claim-prompt-is-contract-not-vendor",
+      "to": "person-fernando"
+    },
+    {
+      "id": "proposed_by-claim-freezing-gold-befor-we-tun-prompt-is-only-honest-order-person-fernando",
+      "type": "PROPOSED_BY",
+      "from": "claim-freezing-gold-befor-we-tun-prompt-is-only-honest-order",
+      "to": "person-fernando"
+    }
+  ],
+  "version": 10
+}

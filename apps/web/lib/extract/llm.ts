@@ -14,14 +14,20 @@ export interface ExtractorClient {
   extract(prompt: string): Promise<Proposal | undefined>;
 }
 
-export interface NvidiaConfig {
+export interface LlmConfig {
   apiKey: string;
   model: string;
+  /**
+   * La URL completa del `chat/completions` del proveedor.
+   *
+   * Es configuración y no una constante porque cambiar de proveedor es una palanca
+   * prevista: NVIDIA BUILD, Groq y Cerebras hablan todos el dialecto de OpenAI, así que
+   * el cambio es esta URL, la key y el id del modelo — nada más del cliente.
+   */
+  baseUrl: string;
   /** Timeout del fetch: aborta la llamada al LLM si no contesta a tiempo. */
   fetchTimeoutMs: number;
 }
-
-const NVIDIA_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
 
 /**
  * El esquema de la respuesta, con los tipos como `enum`.
@@ -85,20 +91,44 @@ function reportFailure(detail: string): void {
 }
 
 /**
- * Cliente real contra NVIDIA BUILD (endpoint compatible con OpenAI).
+ * ¿Este 400 dice que el modelo no admite `json_schema`, o que esta generación concreta
+ * salió mal?
+ *
+ * La diferencia importa y costó descubrirla. Los dos casos son un 400 con el mismo
+ * aspecto, pero uno es permanente y el otro no:
+ *
+ * - `llama-3.3-70b-versatile` en Groq responde *"This model does not support response
+ *   format `json_schema`"*. Es de por vida: hay que caer a `json_object` y quedarse ahí.
+ * - Los modelos de razonamiento (`openai/gpt-oss-*`) responden `json_validate_failed`
+ *   cuando el presupuesto de tokens se lo comió el razonamiento y el JSON salió cortado.
+ *   Eso es **un lote malo**, no una incompatibilidad: apagar `json_schema` por eso
+ *   degradaría el resto de la sesión por un fallo pasajero.
+ */
+function rejectsJsonSchema(status: number, body: string): boolean {
+  if (status !== 400) {
+    return false;
+  }
+  if (body.includes("json_validate_failed")) {
+    return false;
+  }
+  return body.includes("does not support") || body.includes("response_format");
+}
+
+/**
+ * Cliente contra cualquier proveedor con endpoint compatible con OpenAI.
  *
  * Pide structured output con el esquema de 6+6 tipos como `enum` y sanea la respuesta con
  * `sanitizeProposal`: lo que no cumpla el esquema cerrado se descarta igualmente, porque
  * el `enum` es una ayuda al modelo y no una garantía del proveedor. El lote se aborta y
  * devuelve `undefined` si el modelo no contesta a tiempo.
  */
-export function nvidiaExtractor(config: NvidiaConfig): ExtractorClient {
+export function openAiCompatibleExtractor(config: LlmConfig): ExtractorClient {
   // Si el proveedor rechaza el `json_schema`, se cae a `json_object` y ahí se queda: no
   // tiene sentido volver a intentarlo en cada lote de la sesión.
   let structuredOutput = true;
 
   async function post(prompt: string, signal: AbortSignal): Promise<Response> {
-    return fetch(NVIDIA_ENDPOINT, {
+    return fetch(config.baseUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -131,19 +161,27 @@ export function nvidiaExtractor(config: NvidiaConfig): ExtractorClient {
       try {
         let response = await post(prompt, controller.signal);
 
-        // Un 400 con el `json_schema` puesto suele ser "este modelo no lo soporta". Se
-        // reintenta una vez sin él y se recuerda, en vez de perder todos los lotes.
-        if (!response.ok && response.status === 400 && structuredOutput) {
-          structuredOutput = false;
-          reportFailure(
-            `el modelo "${config.model}" rechazó json_schema; se sigue con json_object`,
-          );
-          response = await post(prompt, controller.signal);
+        if (!response.ok) {
+          const detail = await response.text();
+
+          if (rejectsJsonSchema(response.status, detail) && structuredOutput) {
+            structuredOutput = false;
+            reportFailure(
+              `el modelo "${config.model}" rechazó json_schema; se sigue con json_object`,
+            );
+            response = await post(prompt, controller.signal);
+          } else {
+            reportFailure(
+              `${response.status} del proveedor para el modelo "${config.model}" — ` +
+                `${detail.slice(0, 200)}`,
+            );
+            return undefined;
+          }
         }
 
         if (!response.ok) {
           reportFailure(
-            `${response.status} de NVIDIA para el modelo "${config.model}" — ` +
+            `${response.status} del proveedor para el modelo "${config.model}" — ` +
               `${(await response.text()).slice(0, 200)}`,
           );
           return undefined;
@@ -154,7 +192,9 @@ export function nvidiaExtractor(config: NvidiaConfig): ExtractorClient {
         };
         const content = body.choices?.[0]?.message?.content;
         if (typeof content !== "string" || content.trim() === "") {
-          reportFailure("la respuesta del modelo vino vacía");
+          // Los modelos de razonamiento gastan el presupuesto en `reasoning_content` y
+          // dejan el `content` vacío. Medido en NVIDIA y en Groq: no sirven aquí.
+          reportFailure("la respuesta del modelo vino vacía (¿es un modelo de razonamiento?)");
           return undefined;
         }
 

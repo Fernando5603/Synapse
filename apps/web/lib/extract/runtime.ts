@@ -7,7 +7,7 @@ import {
 } from "@/lib/channel";
 import { createMirror, type GraphMirror } from "./mirror";
 import { createPipeline, percentile95, type Pipeline, type PipelineReport } from "./pipeline";
-import type { ExtractorClient } from "./nvidia";
+import type { ExtractorClient } from "./llm";
 
 export interface ExtractionRuntimeOptions {
   extractor: ExtractorClient;

@@ -4,8 +4,14 @@ Cliente Next.js de la sala viva: chat persistente y presencia sobre Portal.
 
 ## Requisitos
 
-- `NEXT_PUBLIC_PORTAL_API_KEY`: publishable key de Portal (`pk_...`). Es segura en el
-  bundle del navegador. Copia `.env.example` a `.env.local` y rellena el valor.
+Las claves van en el **`.env` de la raíz del monorepo**, no en este directorio.
+`next.config.mjs` lo carga a mano, porque Next solo mira los `.env` de su propia carpeta.
+
+Poner una copia en `apps/web/.env.local` es una forma conocida de romper el sistema: Next
+carga ese fichero **antes** que la config, así que gana sobre el de la raíz, y una clave
+que se quedó vieja ahí deja el webhook devolviendo 401 sin decir por qué.
+
+`npm run verify:flow` comprueba justo eso, además del resto de la cadena.
 
 ## Desarrollo
 
