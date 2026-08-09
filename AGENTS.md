@@ -30,6 +30,8 @@ Tres procesos:
 
 Sin base de datos: el grafo vive en memoria de la extensión y se persiste en `ctx.storage`. Deploy en Railway (crédito de prueba, sin cold starts).
 
+Medido en el ticket 04: **una instancia de extensión pierde su memoria en menos de 45 s de inactividad** (`spike.md`, X1-Q6). Así que `ctx.storage` no protege del reciclaje del proceso — es la única memoria que hay entre un turno de conversación y el siguiente.
+
 ## El seam: `graph-core`
 
 Todo el comportamiento determinista vive en un módulo puro **sin imports de Portal, `fetch`, `Date` ni Next.js**. Compartido por cliente, backend y extensión. Cuatro funciones:

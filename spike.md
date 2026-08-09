@@ -25,7 +25,7 @@ Saber por dónde puede entrar un mensaje generado en el servidor al namespace de
 | **X1-Q3** | ¿Puede el código de una extensión hacer `fetch` saliente a un tercero, y leer un secreto definido con `portal secrets set`? | **Señal negativa.** El `ExtensionContext` documentado expone solo `ctx.storage`; no aparece `fetch` ni `env()`. Decide si B es viable — no bloquea a C |
 | **X1-Q4** | ¿Cuál es el ciclo editar → desplegar → probar de una extensión, y cuánto tarda? | **Respondida al construir el ticket 04.** `portal deploy` tarda segundos; el ciclo real son minutos y tiene tres trampas. Ver abajo |
 | **X1-Q5** | ¿Cuál es la API de inbox / notificaciones in-app, y qué hace falta para emitir una notificación dirigida a un usuario concreto desde código de servidor? | **Respondida.** No hay endpoint suelto: la ruta REST acepta `to?`/`mentions?`, y una regla en `portal.config.ts` devuelve un descriptor de notificación sobre el mensaje del canal |
-| **X1-Q6** | Cuando una instancia de extensión se recicla, ¿qué se rehidrata solo desde `ctx.storage` y qué hay que reconstruir a mano en `onInit`? | Abierta |
+| **X1-Q6** | Cuando una instancia de extensión se recicla, ¿qué se rehidrata solo desde `ctx.storage` y qué hay que reconstruir a mano en `onInit`? | **Medido a medias en el ticket 04**: el reciclaje llega en **menos de 45 s** de inactividad. Qué rehidrata sigue abierto. Ver abajo |
 
 ## X1-Q4 — el ciclo de una extensión, medido al construir el ticket 04
 
@@ -65,6 +65,30 @@ Instrumentos que sí sirven, los dos del propio CLI:
   fuera del navegador. Distingue "el cliente no envía" de "la extensión no contesta".
 - Un script de nueve líneas con `@portalsdk/core` que conecte e imprima
   `getSnapshot().ext` — dice si la extensión está viva sin enviar nada.
+
+## X1-Q6 — cada cuánto se recicla una instancia (medido en el ticket 04)
+
+La extensión del ticket 04 lleva un contador de versión en un campo de instancia, sin
+`ctx.storage`. Dos propuestas al mismo canal, variando solo la espera entre ellas:
+
+| Espera entre propuestas | Versiones devueltas |
+|---|---|
+| 5 s | `1`, `2` — el campo sobrevive |
+| 45 s | `1`, `1` — el campo se perdió |
+
+**Una instancia pierde su memoria en menos de 45 segundos de inactividad.** El README de
+`@portalsdk/extension-protocol` dice que los campos de instancia persisten entre
+invocaciones y que las instancias se reciclan "cuando el canal lleva suficiente tiempo
+inactivo"; lo que no dice es que "suficiente" son segundos.
+
+Consecuencia directa para el ticket 06, y es la que importa: **`ctx.storage` no es una red
+de seguridad contra el reciclaje del proceso, es la única memoria que la extensión tiene
+entre un turno de conversación y el siguiente.** En una discusión real la gente calla más de
+45 segundos constantemente. Un grafo que viva solo en un campo de instancia se vacía a mitad
+de sesión, y el síntoma sería un grafo que "olvida" en vez de un error.
+
+Sigue abierto qué rehidrata Portal por su cuenta al reciclar y qué hay que reconstruir en
+`onInit` — pero la pregunta ya no es si hace falta persistir: es cuándo.
 
 ## Acceptance
 
