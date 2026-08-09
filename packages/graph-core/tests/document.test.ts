@@ -73,7 +73,7 @@ describe("el documento final de la sesión", () => {
     expect(doc).toContain("¿Servirá el modelo gratis?");
   });
 
-  it("deja de listar una Question cuando tiene una arista ANSWERS", () => {
+  it("una Question con ANSWERS no aparece en lo que quedó abierto", () => {
     const g = graph(
       [
         node("q1", "Question", "¿Servirá el modelo gratis?"),
@@ -84,7 +84,9 @@ describe("el documento final de la sesión", () => {
 
     const doc = renderDocument(g);
 
-    expect(doc).not.toContain("¿Servirá el modelo gratis?");
+    // Sigue siendo una idea, pero ya no está "abierta".
+    expect(doc).toContain("¿Servirá el modelo gratis?");
+    expect(doc).not.toContain("## Lo que quedó abierto");
   });
 
   it("una decisión sin soporte se lista igualmente", () => {
@@ -93,5 +95,51 @@ describe("el documento final de la sesión", () => {
     const doc = renderDocument(g);
 
     expect(doc).toContain("Cancelar el proyecto");
+  });
+
+  it("lista los Claims y Concepts del grafo como las ideas de la conversación", () => {
+    const g = graph([
+      node("c1", "Claim", "the free model is fast"),
+      node("c2", "Concept", "hybrid pipeline"),
+      node("c3", "Claim", "a hybrid pipeline is the right call"),
+    ]);
+
+    const doc = renderDocument(g);
+
+    expect(doc).toContain("the free model is fast");
+    expect(doc).toContain("hybrid pipeline");
+    expect(doc).toContain("a hybrid pipeline is the right call");
+  });
+
+  it("muestra las relaciones entre nodos además de las secciones del spec", () => {
+    const g = graph(
+      [
+        node("c1", "Concept", "free tier model"),
+        node("c2", "Claim", "the free tier model is not precise"),
+      ],
+      [
+        edge("e1", "SUPPORTS", "c2", "c1"),
+        edge("e2", "CONTRADICTS", "c2", "c3"),
+      ],
+    );
+    // c3 no existe: la arista CONTRADICTS a un nodo ausente no puede listarse.
+    const doc = renderDocument(g);
+
+    expect(doc).toContain("free tier model");
+    expect(doc).toContain("the free tier model is not precise");
+    // La relación SUPPORTS entre nodos existentes se refleja.
+    expect(doc).toContain("SUPPORTS");
+  });
+
+  it("el documento es determinista: el mismo grafo da el mismo markdown", () => {
+    const g = graph(
+      [
+        node("c1", "Claim", "la latencia importa"),
+        node("c2", "Concept", "debounce"),
+      ],
+      [edge("e1", "ELABORATES", "c1", "c2")],
+    );
+
+    expect(renderDocument(g)).toBe(renderDocument(g));
   });
 });

@@ -54,6 +54,27 @@ export function renderDocument(graph: Graph): string {
   lines.push(`Versión del grafo: ${graph.version}`);
   lines.push("");
 
+  // Las ideas de la conversación: los nodos del grafo que no son Person. Es lo que el
+  // documento no decía y por eso parecía "cualquier cosa": si el pipeline extrajo Claims
+  // y Concepts (la sustancia), el markdown solo listaba Decisiones/Preguntas/Contradicciones
+  // y salía casi vacío.
+  const ideaRows = graph.nodes
+    .filter((node) => node.type !== "Person")
+    .map((node) => `- [${node.type}] ${node.name}`);
+  section(lines, "Ideas de la conversación", ideaRows);
+
+  // Las relaciones entre las ideas, como frases.
+  const relationRows: string[] = [];
+  for (const edge of graph.edges) {
+    const from = nodes.get(edge.from);
+    const to = nodes.get(edge.to);
+    if (from === undefined || to === undefined) {
+      continue;
+    }
+    relationRows.push(`- ${edge.type}: ${from.name} → ${to.name}`);
+  }
+  section(lines, "Relaciones", relationRows);
+
   // Decisiones con su cadena de soporte.
   const decisionRows: string[] = [];
   for (const decision of graph.nodes.filter((node) => node.type === "Decision")) {
