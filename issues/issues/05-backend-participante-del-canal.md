@@ -29,6 +29,11 @@ Todavía sin LLM: la propuesta es fija, disparada por un endpoint de prueba.
   en aproximadamente un segundo, sin reiniciar el proceso.
 - **X1-Q1**: `internal/probe-rest.mjs`. Desenlace y consecuencias en `spike.md`.
 
-Queda la corrida del criterio 4 en Railway con tres pestañas: el equivalente headless (el
-delta llega a otro participante del canal) ya pasa, pero el enunciado pide verlo en las tres
-pantallas del entorno desplegado, que es donde el 04 se dio por cerrado.
+Queda la corrida del criterio 4 con tres pestañas. El equivalente headless —el delta llega a
+otro participante del canal, y el agente sale en el roster en vivo— ya pasa.
+
+**No hay entorno desplegado**: Railway no está sirviendo el proyecto ahora mismo. El 04 se
+dio por cerrado mirándolo en tres ventanas de incógnito locales contra `npm run dev -w web`,
+y ese es el criterio que aplica también aquí. Ojo con el detalle del README: tres pestañas
+del mismo perfil son **un solo participante**, porque la identidad anónima es por perfil de
+navegador.
