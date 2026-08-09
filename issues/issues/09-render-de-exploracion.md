@@ -6,14 +6,12 @@
 
 **Blocked by:** 04.
 
-**Status:** done (canvas con mock mientras 04/06 no existen)
+**Status:** done — la fuente real aterrizó con el ticket 04: la sala se alimenta del `graph.delta` de la extensión (`Room` aplica `applyDelta`), y `GraphCanvas` la recibe por props. El mock quedó como fixture del test de layout (escala de sesión), no cuelga de la sala.
 
 - [x] La posición inicial de un nodo se siembra de forma determinista desde su `id`: las tres pantallas coinciden — `lib/layout.ts` `seedPosition`
-- [x] Un nodo se queda donde apareció; la llegada de un delta no reorganiza el lienzo — `relaxInto` mueve solo los nuevos
-- [x] El force-directed corre solo contra vecinos inmediatos, nunca global — `relaxLocal`/`relaxInto`
+- [x] Un nodo se queda donde apareció; la llegada de un delta no reorganiza el lienzo — el canvas solo siembra los nodos nuevos
+- [x] El force-directed corre solo contra vecinos inmediatos, nunca global — `relaxNeighbors` al soltar el arrastre
 - [x] Aristas `SUPPORTS` en verde y `CONTRADICTS` en rojo — `GraphCanvas`
 - [x] Arrastrar un nodo lo mueve solo en mi pantalla — estado local del canvas
 - [x] El tipo de cada nodo se distingue de un vistazo — color + letra por tipo, leyenda
-- [x] Con ~40 nodos el lienzo sigue siendo legible — mock de 40 nodos en `lib/mockGraph.ts`
-
-Fuente real pendiente: `GraphCanvas` ya recibe un `Graph` por props; al aterrizar 04/06 el mock en `Room` se sustituye por el grafo autoritativo sin tocar el canvas.
+- [x] Con ~40 nodos el lienzo sigue siendo legible — fixture `lib/mockGraph.ts` en el test de layout
