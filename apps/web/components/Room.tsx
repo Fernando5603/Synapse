@@ -74,8 +74,16 @@ export default function Room({
             return next;
           });
         }
+        // Traza de bring-up: separa "el delta no llegó" de "llegó y no se pintó".
+        // Se puede quitar cuando el 05 deje el camino andando solo.
+        if (msg.type.startsWith("graph.")) {
+          console.log("[synapse] recibido:", msg.type, msg.content);
+        }
         if (msg.type === GRAPH_DELTA_TYPE && isDeltaContent(msg.content)) {
           const delta = msg.content;
+          console.log(
+            `[synapse] delta v${delta.version}: ${delta.addedNodes.length} nodos, ${delta.addedEdges.length} aristas`,
+          );
           setGraph((previous) => applyDelta(previous, delta));
         }
       },
@@ -143,6 +151,7 @@ export default function Room({
   // del hook, así que la sala lo asoma para poder dispararlo desde la consola:
   //     await __synapse.propose()
   useEffect(() => {
+    console.log(`[synapse] canal: room-${roomId}`);
     const debugWindow = window as unknown as { __synapse?: unknown };
     debugWindow.__synapse = {
       propose: (proposal: Proposal = DEMO_PROPOSAL) =>

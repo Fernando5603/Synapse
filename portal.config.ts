@@ -7,7 +7,7 @@ export default defineConfig({
     // que escriba el equipo queda cubierto sin tocar esta config.
     "room-*": {
       extensions: {
-        graphOwner: "./extensions/graph-owner.ts",
+        graph: "./extensions/graph-owner.ts",
       },
     },
   },
