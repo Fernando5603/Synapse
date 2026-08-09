@@ -154,6 +154,24 @@ export async function propose(
 }
 
 /**
+ * Suscribe un handler permanente a los `graph.delta` de la sala.
+ *
+ * Es lo que alimenta el espejo del grafo del backend (ticket 07): la lista de nodos
+ * del prompt sale de aquí y del snapshot de la conexión, no de las propias propuestas.
+ */
+export function watchDeltas(
+  roomId: string,
+  onDelta: (delta: Delta) => void,
+): Unsubscribe {
+  const channel = agentChannel(roomId);
+  return channel.on("message", (message) => {
+    if (message.type === GRAPH_DELTA_TYPE && isDeltaContent(message.content)) {
+      onDelta(message.content);
+    }
+  });
+}
+
+/**
  * El primer `graph.delta` que entre al canal, o `undefined` si no entra ninguno a tiempo.
  *
  * No distingue el delta de esta propuesta del de la propuesta de otro: la extensión no

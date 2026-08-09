@@ -13,15 +13,17 @@ Dos piezas de este ticket son menos obvias de lo que parecen y no se pueden omit
 
 **Blocked by:** 05 (entrega de propuestas), 06 (grafo autoritativo del que sale la lista de nodos).
 
-**Status:** ready-for-agent
+**Status:** implementado — verificación con la key real y corrida en tres ventanas pendientes
 
-- [ ] El route handler recibe `message.published` y **su primera línea** filtra por namespace y `channelId`
-- [ ] Con el filtro puesto, los `graph.proposal` del backend y los `graph.delta` de la extensión no realimentan el pipeline
-- [ ] Los turnos se acumulan y el lote se cierra 3 s después del último mensaje
-- [ ] El prompt lleva la ventana de los últimos 8 turnos
-- [ ] El backend alimenta su espejo del grafo con los `graph.delta` autoritativos y el `onSnapshot` de su conexión, nunca con sus propias propuestas
-- [ ] El prompt lleva la lista completa de nodos existentes, tomada de ese espejo
-- [ ] La salida es structured output con `enum` sobre el esquema cerrado de 6+6 tipos; lo que no encaja se descarta
-- [ ] Prompt y esquema en inglés, con guard de idioma para entradas que no lo sean
-- [ ] Una conversación real de un minuto produce nodos tipados correctos en las tres pantallas
-- [ ] Un mensaje que no aporta estructura produce un delta vacío, no un error ni un silencio
+- [x] El route handler recibe `message.published` y **su primera línea** filtra por namespace y `channelId` — `app/api/portal/webhook` + `lib/extract/filter.ts` (`classifyWebhook`, reusa `roomIdFromChannel`)
+- [x] Con el filtro puesto, los `graph.proposal` del backend y los `graph.delta` de la extensión no realimentan el pipeline — `classifyWebhook` ignora todo lo que no sea chat persistente de `room-*`; ni siquiera crea el runtime de la sala
+- [x] Los turnos se acumulan y el lote se cierra 3 s después del último mensaje — `lib/extract/buffer.ts` + `pipeline.ts` (debounce reinicia con cada turno)
+- [x] El prompt lleva la ventana de los últimos 8 turnos — `buildPrompt` sobre `contextWindow(turns, 8)`
+- [x] El backend alimenta su espejo del grafo con los `graph.delta` autoritativos y el `onSnapshot` de su conexión, nunca con sus propias propuestas — `lib/extract/mirror.ts` + `watchDeltas` en `agent.ts`
+- [x] El prompt lleva la lista completa de nodos existentes, tomada de ese espejo — `buildPrompt({ nodes: mirror.get().nodes })`
+- [x] La salida es structured output con `enum` sobre el esquema cerrado de 6+6 tipos; lo que no encaja se descarta — `nvidiaExtractor` (response_format json) + `sanitizeProposal`
+- [x] Prompt y esquema en inglés, con guard de idioma para entradas que no lo sean — `buildPrompt`
+- [ ] Una conversación real de un minuto produce nodos tipados correctos en las tres pantallas — *pendiente: key real de NVIDIA + corrida en tres ventanas*
+- [x] Un mensaje que no aporta estructura produce un delta vacío, no un error ni un silencio — la extensión del 06 mergea y devuelve delta vacío con versión incrementada
+- [x] Política de fallo: timeout en el cliente LLM, un reintento (`retries: 1`), y el lote se **arrastra** a la ventana siguiente si el LLM o la entrega fallan — `pipeline.ts`; los turnos que llegan a mitad de la extracción no se pierden (test)
+- [ ] El fallo se comunica con un mensaje efímero, nunca con silencio — *pendiente: emitir el efímero por el canal del agente (transporte)*

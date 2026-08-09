@@ -18,6 +18,21 @@ export function channelIdFor(roomId: string): string {
   return `room-${roomId}`;
 }
 
+/** El prefijo del canal de una sala. Un solo sitio lo define: el webhook y el filtro lo reusan. */
+export const ROOM_CHANNEL_PREFIX = "room-";
+
+/**
+ * El roomId desde el channelId de un webhook, o `undefined` si no es una sala.
+ * El filtro de la primera línea y el enrutado del webhook usan la misma regla.
+ */
+export function roomIdFromChannel(channelId: string): string | undefined {
+  if (!channelId.startsWith(ROOM_CHANNEL_PREFIX)) {
+    return undefined;
+  }
+  const roomId = channelId.slice(ROOM_CHANNEL_PREFIX.length);
+  return roomId === "" ? undefined : roomId;
+}
+
 /** Tipo de mensaje con el que la extensión `graph-owner` difunde cada delta. */
 export const GRAPH_DELTA_TYPE = "graph.delta";
 
