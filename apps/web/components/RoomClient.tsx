@@ -8,11 +8,37 @@ import { JoinForm } from "./JoinForm";
 
 const DISPLAY_NAME_KEY = "synapse:displayName";
 
+// localStorage puede estar bloqueado (incógnito con cookies de terceros, iframe, o la
+// app servida por un túnel): getItem/setItem lanzan SecurityError. Si no hay storage,
+// el nombre vive en memoria — basta para la sesión y evita el bucle de "vuelve a pedir".
+const memoryStore = new Map<string, string>();
+
+function readStoredName(): string | null {
+  const value = memoryStore.get(DISPLAY_NAME_KEY);
+  if (value !== undefined) {
+    return value;
+  }
+  try {
+    return window.localStorage.getItem(DISPLAY_NAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeName(name: string): void {
+  memoryStore.set(DISPLAY_NAME_KEY, name);
+  try {
+    window.localStorage.setItem(DISPLAY_NAME_KEY, name);
+  } catch {
+    // Sin storage persistente: el nombre queda en memoria para esta sesión.
+  }
+}
+
 export default function RoomClient({ roomId }: { roomId: string }) {
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
-    setDisplayName(window.localStorage.getItem(DISPLAY_NAME_KEY));
+    setDisplayName(readStoredName());
   }, []);
 
   const portal = useMemo(() => {
@@ -46,7 +72,7 @@ export default function RoomClient({ roomId }: { roomId: string }) {
   );
 
   function handleJoin(name: string) {
-    window.localStorage.setItem(DISPLAY_NAME_KEY, name);
+    storeName(name);
     setDisplayName(name);
   }
 }

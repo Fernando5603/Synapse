@@ -15,7 +15,7 @@ export function JoinForm({ onJoin }: { onJoin: (name: string) => void }) {
       }}
     >
       <h1>Synapse</h1>
-      <p>Entra a la sala sin crear cuenta.</p>
+      <p>¿Cómo te llamas? Así te ven los demás en la sala.</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -33,7 +33,7 @@ export function JoinForm({ onJoin }: { onJoin: (name: string) => void }) {
           style={{ padding: "8px 12px", width: "100%", marginBottom: 8 }}
         />
         <button type="submit" style={{ padding: "8px 16px" }}>
-          Entrar
+          Entrar a la sala
         </button>
       </form>
     </main>
