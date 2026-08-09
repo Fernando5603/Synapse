@@ -15,6 +15,19 @@ export default defineConfig({
       extensions: {
         graph: "./extensions/graph-owner.ts",
       },
+      // Ticket 11: el aviso de contradicción viaja como mensaje dirigido con `to`; esta
+      // regla lo convierte en item de inbox para su destinatario. No hay endpoint suelto
+      // de notificaciones.
+      notify: (ctx) => {
+        if (ctx.message.type !== "contradiction.notice") {
+          return null;
+        }
+        return {
+          title: "Alguien contradice tu afirmación",
+          data: { claimId: (ctx.message.content as { claimId?: string }).claimId ?? null },
+          to: ctx.message.to ?? [],
+        };
+      },
     },
   },
 });

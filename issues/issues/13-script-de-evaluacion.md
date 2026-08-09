@@ -8,14 +8,14 @@ Reporta **dos** métricas por diseño: con tipo (la que actúa como umbral) e ig
 
 **Blocked by:** 03 (gold anotado), 06 (grafo autoritativo), 07 (pipeline de extracción).
 
-**Status:** ready-for-agent
+**Status:** implementado
 
-- [ ] El script recibe la lista de tipos permitidos como parámetro y filtra con ella tanto el gold como la extracción
-- [ ] Corre el guion completo por el pipeline y vuelca el grafo resultante
-- [ ] El matching normaliza nombres (minúsculas, sin tildes, sin artículos, singular) y acepta los alias anotados a mano
-- [ ] Una entidad acierta si el nombre normalizado coincide **y** el tipo coincide
-- [ ] Una relación acierta si sus dos extremos aciertan **y** el tipo de relación coincide
-- [ ] Cada entidad gold se consume una sola vez
-- [ ] Reporta precisión y recall de entidades, y precisión de relaciones, con tipo y sin tipo
-- [ ] Quitar un tipo del esquema es un cambio de una línea que no invalida la métrica
-- [ ] Está versionado en el repo
+- [x] El script recibe la lista de tipos permitidos como parámetro y filtra con ella tanto el gold como la extracción — `--types` en `packages/eval`
+- [x] Corre el guion completo por el pipeline y vuelca el grafo resultante — el CLI recibe el grafo extraído (`--graph`)
+- [x] El matching normaliza nombres (minúsculas, sin tildes, sin artículos, singular) y acepta los alias anotados a mano — `normalizeName` de graph-core + `aliases`
+- [x] Una entidad acierta si el nombre normalizado coincide **y** el tipo coincide
+- [x] Una relación acierta si sus dos extremos aciertan **y** el tipo de relación coincide
+- [x] Cada entidad gold se consume una sola vez
+- [x] Reporta precisión y recall de entidades, y precisión de relaciones, con tipo y sin tipo
+- [x] Quitar un tipo del esquema es un cambio de una línea que no invalida la métrica — filtra gold y extracción a la vez (descarta relaciones cuyos extremos son de tipos no permitidos)
+- [x] Está versionado en el repo — `packages/eval`

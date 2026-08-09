@@ -43,13 +43,39 @@ export default function GraphCanvas({
   graph,
   remoteCursors = [],
   onCursorMove,
+  focusNodeId = null,
 }: {
   graph: Graph;
   remoteCursors?: readonly RemoteCursor[];
   onCursorMove?: (x: number, y: number) => void;
+  focusNodeId?: string | null;
 }) {
   const [positions, setPositions] = useState<Positions>(() => new Map());
   const dragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [viewport, setViewport] = useState({ x: 0, y: 0 });
+
+  // Centrar el nodo señalado por un aviso de contradicción: desplaza el viewBox de modo
+  // que el nodo quede en el centro, y lo marca como destacado. Solo reacciona cuando
+  // `focusNodeId` cambia: un layout nuevo no vuelve a saltar la vista.
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const lastFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (focusNodeId === null || lastFocusRef.current === focusNodeId) {
+      return;
+    }
+    lastFocusRef.current = focusNodeId;
+    const position = positions.get(focusNodeId);
+    if (position === undefined) {
+      return;
+    }
+    setViewport({
+      x: position.x - VIEW_BOUNDS.width / 2,
+      y: position.y - VIEW_BOUNDS.height / 2,
+    });
+    setHighlighted(focusNodeId);
+    const timer = setTimeout(() => setHighlighted(null), 2500);
+    return () => clearTimeout(timer);
+  }, [focusNodeId, positions]);
 
   function cursorCoords(
     event: React.PointerEvent<SVGSVGElement>,
@@ -95,7 +121,7 @@ export default function GraphCanvas({
       <svg
         width="100%"
         height="100%"
-        viewBox={`0 0 ${VIEW_BOUNDS.width} ${VIEW_BOUNDS.height}`}
+        viewBox={`${viewport.x} ${viewport.y} ${VIEW_BOUNDS.width} ${VIEW_BOUNDS.height}`}
         onPointerMove={(event) => {
           const coords = cursorCoords(event);
           onCursorMove?.(coords.x, coords.y);
@@ -174,6 +200,9 @@ export default function GraphCanvas({
                 event.currentTarget.setPointerCapture(event.pointerId);
               }}
             >
+              {highlighted === node.id && (
+                <circle r={30} fill="none" stroke="#f59e0b" strokeWidth={3} />
+              )}
               <circle r={26} fill={NODE_COLORS[node.type]} opacity={0.15} />
               <circle r={18} fill={NODE_COLORS[node.type]} />
               <text

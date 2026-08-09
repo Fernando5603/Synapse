@@ -7,12 +7,14 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "typecheck": "npm run typecheck -w @synapse/graph-core && npm run typecheck -w web && tsc --noEmit -p tsconfig.extensions.json",
+    "typecheck": "npm run typecheck -w @synapse/graph-core && npm run typecheck -w @synapse/eval && npm run typecheck -w web && tsc --noEmit -p tsconfig.extensions.json",
     "deploy:portal": "portal deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:graph-core": "vitest run packages/graph-core",
     "test:web": "vitest run apps/web",
+    "test:eval": "vitest run packages/eval",
+    "eval": "npm run eval -w @synapse/eval",
     "dev:web": "npm run dev -w web"
   },
   "devDependencies": {

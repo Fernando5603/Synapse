@@ -1,0 +1,14 @@
+{
+  "version": 0,
+  "nodes": [
+    { "id": "n1", "type": "Concept", "name": "latency" },
+    { "id": "n2", "type": "Concept", "name": "closed schema" },
+    { "id": "n3", "type": "Claim", "name": "latency matters more than perfection" },
+    { "id": "n4", "type": "Claim", "name": "latency is not the point" },
+    { "id": "n5", "type": "Question", "name": "can generative AI do the extraction" }
+  ],
+  "edges": [
+    { "id": "e1", "type": "CONTRADICTS", "from": "n4", "to": "n3" },
+    { "id": "e2", "type": "SUPPORTS", "from": "n1", "to": "n3" }
+  ]
+}

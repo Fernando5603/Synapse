@@ -1,9 +1,10 @@
-import type { Proposal } from "@synapse/graph-core";
+import { detectContradiction, type Proposal } from "@synapse/graph-core";
 import { agentChannel, propose, watchDeltas } from "@/lib/agent";
 import {
   AGENT_SIGNAL_CONTENT,
   AGENT_SKIPPED_TYPE,
   AGENT_THINKING_TYPE,
+  CONTRADICTION_NOTICE_TYPE,
 } from "@/lib/channel";
 import { createMirror, type GraphMirror } from "./mirror";
 import { createPipeline, percentile95, type Pipeline, type PipelineReport } from "./pipeline";
@@ -59,7 +60,22 @@ export class ExtractionRuntime {
       retries: this.#options.retries,
       // `propose` no lanza cuando la entrega falla (devuelve `{delta: undefined}`);
       // el arrastre del lote depende de que esto lance.
-      deliver: async (room: string, proposal: Proposal) => {
+      deliver: async (room: string, proposal: Proposal, authorId: string | undefined) => {
+        // Contradicción dirigida (ticket 11): antes de entregar, sobre el espejo. Si la
+        // propuesta contradice un Claim ajeno, el aviso va a su autor como mensaje
+        // dirigido — una regla en `portal.config.ts` lo convierte en item de inbox.
+        const hit =
+          authorId !== undefined
+            ? detectContradiction(mirror.get(), proposal, authorId)
+            : null;
+        if (hit !== null) {
+          agentChannel(room).send({
+            type: CONTRADICTION_NOTICE_TYPE,
+            content: { claimId: hit.claimId },
+            to: hit.targetUserId,
+          });
+        }
+
         const outcome = await propose(room, proposal);
         if (outcome.delta === undefined) {
           throw new Error(`El agente no recibió el delta de la propuesta de ${room}.`);

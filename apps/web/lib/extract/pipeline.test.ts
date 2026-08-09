@@ -177,6 +177,33 @@ describe("la política de fallo del lote", () => {
     await Promise.resolve();
     expect(delivered).toHaveLength(2);
   });
+
+  it("estampa el autor del turno en los nodos de la propuesta", async () => {
+    vi.useFakeTimers();
+    const extractor = {
+      extract: async () => ({ nodes: [{ type: "Claim", name: "El modelo gratis basta" }], edges: [] }),
+    };
+    const mirror = createMirror();
+    const seen: { proposal: Proposal; authorId: string | undefined }[] = [];
+    const pipeline = createPipeline({
+      extractor,
+      mirror,
+      debounceMs: 3000,
+      contextSize: 8,
+      retries: 1,
+      deliver: async (_room, proposal, authorId) => {
+        seen.push({ proposal, authorId });
+      },
+    });
+
+    await pipeline.onMessage(event(), 1000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await Promise.resolve();
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.authorId).toBe("u_1");
+    expect(seen[0]!.proposal.nodes[0]).toMatchObject({ proposedBy: "u_1" });
+  });
 });
 
 describe("las señales del agente", () => {

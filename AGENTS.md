@@ -45,7 +45,9 @@ detectContradiction(graph, proposal) -> { targetUserId, claimId } | null
 renderDocument(graph)                -> string
 ```
 
-`applyDelta` es la contraparte de `mergeProposal`: quien mergea produce el delta, quien lo recibe lo aplica. La usan el cliente y el espejo del backend, y es idempotente porque los batches de Portal llegan **al menos una vez**. También es como se adopta el snapshot del late-join: **un snapshot es un delta que lo añade todo**, y unirlo en vez de sustituir es lo que evita que una reconexión devuelva la pantalla a un pasado.
+`applyDelta` es la contraparte de `mergeProposal`: quien mergea produce el delta, quien lo recibe lo aplica. La usan el cliente y el espejo del backend, y es idempotente porque los batches de Portal llegan **al menos una vez**.
+
+`detectContradiction(graph, proposal, authorId)` (ticket 11) detecta, sobre el espejo anterior al merge, si una propuesta contradice un `Claim` ajeno y devuelve `{ targetUserId, claimId }`. El backend la llama antes de entregar la propuesta — con el autor del turno estampado en los nodos (el LLM no lo emite) — y emite el aviso como mensaje dirigido; una regla `notify` en `portal.config.ts` lo convierte en item de inbox. El cliente lo pinta y centra el nodo en el canvas. También es como se adopta el snapshot del late-join: **un snapshot es un delta que lo añade todo**, y unirlo en vez de sustituir es lo que evita que una reconexión devuelva la pantalla a un pasado.
 
 Junto a las cuatro, la aduana del contrato — el mismo módulo, porque el esquema cerrado tiene que ser uno solo:
 
@@ -95,7 +97,7 @@ Reglas de `mergeProposal` fijadas por test (no cambiarlas sin rippear el gold):
 - **Render**: posición fija al crear el nodo, force-directed solo local contra vecinos, sin re-layout global. Arrastre puramente local, no sincronizado. Aristas `SUPPORTS` verdes / `CONTRADICTS` rojas.
 - **Cursores**: `send({ ephemeral: true })` en `pointermove` throttled; `setMetadata()` throttled a 250 ms como fallback de late-join.
 - **Documento final**: plantilla determinista (decisiones con cadena de soporte, contradicciones sin resolver, `Question` sin `ANSWERS`). La síntesis por modelo grande se dispara al cerrar y **no bloquea**: el markdown se muestra completo de inmediato y el párrafo se inserta arriba cuando llega.
-- **Evaluación**: script CLI `eval.ts --types=<lista>`, matching normalizado por conjuntos (minúsculas, sin tildes, sin artículos, singular), con tipo y sin tipo, cada gold se consume una sola vez. El script de evaluación no es un test: produce un número, no falla el build.
+- **Evaluación** (ticket 13): script CLI en `packages/eval` (`npm run eval -- --gold <gold.json> --graph <graph.json> --types Claim,...`). Matching normalizado por conjuntos reusando `normalizeName` de graph-core (minúsculas, sin tildes, sin artículos, singular), con alias anotados a mano, con tipo y sin tipo, cada gold se consume una sola vez. "Quitar un tipo" filtra gold y extracción a la vez — descarta las relaciones cuyos extremos son de tipos no permitidos. Reporta precisión/recall de entidades y precisión de relaciones, y el veredicto del criterio (b). El script de evaluación no es un test: produce un número, no falla el build.
 
 ## Decisions abiertas (no bloquean empezar)
 

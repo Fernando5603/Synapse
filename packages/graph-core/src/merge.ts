@@ -43,14 +43,14 @@ function singularize(word: string): string {
   return stem;
 }
 
-function normalizeName(name: string): string {
+export function normalizeName(name: string): string {
   const tokens = stripAccents(name)
     .toLowerCase()
     .split(/\s+/)
     .filter((token) => token.length > 0);
   const withoutArticles = tokens.filter((token) => !ARTICLES.has(token));
-  // Un nombre que es solo un art\u00edculo ("A", "The") se queda con sus tokens: vaciarlo
-  // fundir\u00eda en un mismo nodo cosas que no tienen nada que ver.
+  // Un nombre que es solo un artículo ("A", "The") se queda con sus tokens: vaciarlo
+  // fundiría en un mismo nodo cosas que no tienen nada que ver.
   const meaningful = withoutArticles.length > 0 ? withoutArticles : tokens;
   return meaningful.map(singularize).join(" ");
 }

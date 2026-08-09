@@ -8,7 +8,7 @@ No hay merge real aquí. La extensión miente a propósito: devuelve siempre el 
 
 **Blocked by:** 01 (contrato de datos), 02 (sala desplegada).
 
-**Status:** ready-for-agent
+**Status:** done — implementado y verificado en tres ventanas de incógnito locales (commit `6a29f37`; detalle en los commits de cierre `98a43c9` y `235e11e`). El status quedó desactualizado en el archivo; el código y la verificación están.
 
 - [x] La extensión está desplegada y su `onBatch` recibe mensajes del namespace `graph.`
 - [x] `onBatch` emite el delta como **valor de retorno**, no como un publish separado — verificado desde fuera del navegador con `portal listen`: el remitente del `graph.delta` es `ext:graph`, no un cliente

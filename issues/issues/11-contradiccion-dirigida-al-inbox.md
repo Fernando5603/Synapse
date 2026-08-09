@@ -8,12 +8,12 @@ El aviso se emite como mensaje dirigido y una regla de configuración lo convier
 
 **Blocked by:** 06 (grafo autoritativo), 07 (espejo del grafo en el backend).
 
-**Status:** ready-for-agent
+**Status:** implementado — verificación del inbox desplegado pendiente
 
-- [ ] `detectContradiction` entra en `graph-core` como función pura, con tests
-- [ ] Devuelve el autor del `Claim` cuando la propuesta trae un `CONTRADICTS` hacia un `Claim` con `PROPOSED_BY` a ese autor
-- [ ] Devuelve nulo cuando el autor de la propuesta es el mismo que el del `Claim`: nadie se notifica a sí mismo
-- [ ] El backend la llama antes de entregar la propuesta, sobre su espejo del grafo
-- [ ] El aviso se emite como mensaje dirigido y una regla de configuración lo convierte en item de inbox
-- [ ] El aviso llega solo al autor del `Claim` contradicho, no al canal
-- [ ] Desde el aviso se llega al nodo correspondiente en el lienzo
+- [x] `detectContradiction` entra en `graph-core` como función pura, con tests — `src/contradiction.ts`, 5 tests
+- [x] Devuelve el autor del `Claim` cuando la propuesta trae un `CONTRADICTS` hacia un `Claim` con `PROPOSED_BY` a ese autor
+- [x] Devuelve nulo cuando el autor de la propuesta es el mismo que el del `Claim`: nadie se notifica a sí mismo
+- [x] El backend la llama antes de entregar la propuesta, sobre su espejo del grafo — `deliver` en `lib/extract/runtime.ts`
+- [x] El aviso se emite como mensaje dirigido y una regla de configuración lo convierte en item de inbox — `send({to})` + `notify` en `portal.config.ts`
+- [x] El aviso llega solo al autor del `Claim` contradicho, no al canal — mensaje dirigido con `to`
+- [x] Desde el aviso se llega al nodo correspondiente en el lienzo — `useInbox` + `focusNodeId` en `GraphCanvas`

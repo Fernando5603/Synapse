@@ -119,11 +119,20 @@ export interface AgentSignalContent {
   signal: true;
 }
 
+/** Contenido del aviso dirigido de contradicción (ticket 11). */
+export interface ContradictionNoticeContent {
+  claimId: string;
+}
+
+/** Tipo del mensaje dirigido con el aviso de contradicción (ticket 11). */
+export const CONTRADICTION_NOTICE_TYPE = "contradiction.notice";
+
 /** Unión de contenidos que viajan por el canal. */
 export type ChannelContent =
   | ChatContent
   | CursorContent
   | AgentSignalContent
+  | ContradictionNoticeContent
   | Delta
   | Proposal;
 

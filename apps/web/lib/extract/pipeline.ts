@@ -18,8 +18,11 @@ export interface PipelineOptions {
    * Entrega la propuesta a la extensión por el camino del ticket 05. Debe **lanzar**
    * si la entrega falló, para que el lote se arrastre; `propose` no lanza (devuelve
    * `{delta: undefined}`), así que el llamador la envuelve.
+   *
+   * `authorId` es el autor del último turno del lote: es a quien hay que atribuir la
+   * propuesta para que `detectContradiction` no se notifique a sí mismo.
    */
-  deliver: (roomId: string, proposal: Proposal) => Promise<void>;
+  deliver: (roomId: string, proposal: Proposal, authorId: string | undefined) => Promise<void>;
   /**
    * Señales de estado del agente. Son puras: deciden *qué* avisar; la emisión del
    * efímero por el canal es transporte y la hace el runtime.
@@ -110,7 +113,13 @@ export function createPipeline(options: PipelineOptions): Pipeline {
       }
 
       try {
-        await options.deliver(roomId, proposal);
+        // Estampar el autor del turno en los nodos propuestos: sin esto el grafo no sabe
+        // quién afirmó cada Claim y `detectContradiction` no tiene a quién avisar.
+        const stamped =
+          lastAuthor(turns) !== undefined
+            ? stampProposalAuthor(proposal, lastAuthor(turns)!)
+            : proposal;
+        await options.deliver(roomId, stamped, lastAuthor(turns));
       } catch {
         report.skipped += 1;
         options.signals?.onSkipped?.(roomId);
@@ -172,4 +181,23 @@ export function percentile95(latencies: readonly number[]): number | undefined {
   const sorted = [...latencies].sort((a, b) => a - b);
   const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1);
   return sorted[index]!;
+}
+
+/** El autor del último turno del lote: a quien se atribuye la propuesta. */
+function lastAuthor(turns: readonly Turn[]): string | undefined {
+  const last = turns[turns.length - 1];
+  return last?.senderId;
+}
+
+/**
+ * Pone `proposedBy` en los nodos de la propuesta que no lo traen. El LLM no sabe quién
+ * habló; el autor del turno que originó el lote es quien se lleva la autoría del Claim.
+ */
+function stampProposalAuthor(proposal: Proposal, authorId: string): Proposal {
+  return {
+    nodes: proposal.nodes.map((node) =>
+      node.proposedBy === undefined ? { ...node, proposedBy: authorId } : node,
+    ),
+    edges: proposal.edges,
+  };
 }

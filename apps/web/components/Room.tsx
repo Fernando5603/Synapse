@@ -1,6 +1,6 @@
 "use client";
 
-import { useChannel } from "@portalsdk/react";
+import { useChannel, useInbox } from "@portalsdk/react";
 import { useEffect, useRef, useState } from "react";
 import type { Message } from "@portalsdk/core";
 import {
@@ -17,6 +17,7 @@ import SessionDoc from "./SessionDoc";
 import {
   AGENT_SKIPPED_TYPE,
   AGENT_THINKING_TYPE,
+  CONTRADICTION_NOTICE_TYPE,
   GRAPH_DELTA_TYPE,
   GRAPH_PROPOSAL_TYPE,
   channelIdFor,
@@ -138,6 +139,17 @@ export default function Room({
   const lastEphemeralRef = useRef<number | undefined>(undefined);
   const lastMetadataRef = useRef<number | undefined>(undefined);
 
+  // El aviso de contradicción llega como item de inbox dirigido (ticket 11); al
+  // recibirlo, el canvas centra el nodo en cuestión.
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  useInbox<{ claimId?: string }>({
+    onItem: (item) => {
+      if (item.type === CONTRADICTION_NOTICE_TYPE && typeof item.data.claimId === "string") {
+        setFocusNodeId(item.data.claimId);
+      }
+    },
+  });
+
   function handleCursorMove(x: number, y: number) {
     const now = Date.now();
     if (shouldEmitCursor(lastEphemeralRef.current, now, CURSOR_EPHEMERAL_INTERVAL)) {
@@ -209,6 +221,7 @@ export default function Room({
         graph={graph}
         remoteCursors={mergeRemoteCursors(me, participants, liveCursors)}
         onCursorMove={handleCursorMove}
+        focusNodeId={focusNodeId}
       />
       <ChatPanel
         messages={chatMessages}
