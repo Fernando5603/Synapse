@@ -33,10 +33,10 @@ You are strict about two things: the closed schema, and reusing names that alrea
  */
 const TYPE_GUIDE = `THE TEST that decides Claim vs Concept, apply it to every node:
 Could someone reply "no, that is wrong"? Then it is a Claim. If it is just a thing you could point at, it is a Concept.
-  "latency"                              -> Concept (a thing)
-  "latency matters more than perfection"  -> Claim   (you can disagree)
-  "failure policy"                        -> Concept
-  "failure must never be silent"          -> Claim
+  "small model"                         -> Concept (a thing)
+  "small models are better for this task" -> Claim   (you can disagree)
+  "failure policy"                      -> Concept
+  "failure must never be silent"        -> Claim
 A Concept is NEVER a full sentence. A Claim is NEVER a bare noun.
 
 Entity types — pick the single best fit:
@@ -64,10 +64,10 @@ Relation types — always written as from -> to:
  */
 const EXAMPLE = `Example.
 Conversation:
-Giano: The free tier models are cheap and fast, and latency matters more than perfection here.
-Fernando: I disagree, a small model will drown on a messy transcript.
+Giano: The free tier models are cheap and fast, and the small model is enough for this task.
+Fernando: I disagree, a larger model is safer for a messy transcript.
 Response:
-{"nodes":[{"type":"Concept","name":"free tier model"},{"type":"Claim","name":"latency matters more than perfection"},{"type":"Claim","name":"small models drown on messy transcripts"}],"edges":[{"type":"ELABORATES","from":"latency matters more than perfection","to":"free tier model"},{"type":"CONTRADICTS","from":"small models drown on messy transcripts","to":"latency matters more than perfection"}]}`;
+{"nodes":[{"type":"Concept","name":"free tier model"},{"type":"Claim","name":"the small model is enough for this task"},{"type":"Claim","name":"a larger model is safer for a messy transcript"}],"edges":[{"type":"ELABORATES","from":"the small model is enough for this task","to":"free tier model"},{"type":"CONTRADICTS","from":"a larger model is safer for a messy transcript","to":"the small model is enough for this task"}]}`;
 
 /**
  * Construye el prompt del extractor.
@@ -129,6 +129,7 @@ Rules:
 - A name is lowercase with no trailing punctuation: 1 to 3 words for a Concept, up to 10 for the others.
 - Keep the speaker's own wording for a Claim, a Question and a Decision. Do not rephrase into your own terms.
 - Never split one idea into a node for each of its words: "three second debounce" is one Concept, not "debounce" plus "three seconds".
+- Do not copy a prior example or a topic from the prompt instructions into the output just because it appears in the examples. Extract only from the actual turns provided.
 - Do NOT mine a Concept out of a Claim you are already extracting. If you extract "a small model will drown on a messy transcript", do not also add "small model" and "messy transcript". A Concept earns a node only when it is a topic the conversation keeps coming back to across turns — not a noun that appears inside one sentence.
 - Edges refer to nodes BY NAME, never by id. Every name in an edge must appear either in the list above or in your own "nodes".
 - Prefer few precise nodes over many vague ones: 0 to 6 nodes per response.

@@ -80,4 +80,11 @@ describe("el prompt del extractor", () => {
 
     expect(prompt).toContain("the graph is empty");
   });
+
+  it("no inyecta ejemplos con términos ajenos al tema real", () => {
+    const prompt = buildPrompt({ turns: [{ id: "m_1", text: "We should ship the small model.", at: 1000, speaker: "Ronald" }], nodes: [] });
+
+    expect(prompt).not.toContain("latency");
+    expect(prompt).toContain("small model");
+  });
 });
