@@ -17,6 +17,7 @@ import SessionDoc from "./SessionDoc";
 import {
   GRAPH_DELTA_TYPE,
   GRAPH_PROPOSAL_TYPE,
+  channelIdFor,
   isChatContent,
   isCursorContent,
   isDeltaContent,
@@ -59,10 +60,7 @@ export default function Room({
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
     {
-      // El prefijo no es decorativo: `portal.config.ts` engancha la extensión con el
-      // template `room-*`, y un template de Portal exige prefijo fijo. Un slug pelado
-      // dejaría la sala sin `graph-owner`.
-      channelId: `room-${roomId}`,
+      channelId: channelIdFor(roomId),
       metadata: { displayName },
       history: 200,
       onMessage: (msg) => {
@@ -151,7 +149,7 @@ export default function Room({
   // del hook, así que la sala lo asoma para poder dispararlo desde la consola:
   //     await __synapse.propose()
   useEffect(() => {
-    console.log(`[synapse] canal: room-${roomId}`);
+    console.log(`[synapse] canal: ${channelIdFor(roomId)}`);
     const debugWindow = window as unknown as { __synapse?: unknown };
     debugWindow.__synapse = {
       propose: (proposal: Proposal = DEMO_PROPOSAL) =>

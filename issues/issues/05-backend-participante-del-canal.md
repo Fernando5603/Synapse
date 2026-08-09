@@ -8,11 +8,27 @@ Todavía sin LLM: la propuesta es fija, disparada por un endpoint de prueba.
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** implementado — falta la corrida en el entorno desplegado
 
-- [ ] El backend acuña un token anónimo con la publishable key
-- [ ] Mantiene una conexión WebSocket viva como participante de servicio
-- [ ] Un `send()` de `graph.proposal` desde el servidor llega a `onBatch` de la extensión
+- [x] El backend acuña un token anónimo con la publishable key
+- [x] Mantiene una conexión WebSocket viva como participante de servicio
+- [x] Un `send()` de `graph.proposal` desde el servidor llega a `onBatch` de la extensión
 - [ ] El nodo aparece en las tres pestañas, disparado desde el servidor
-- [ ] La conexión se restablece sola si se cae, sin reiniciar el proceso
-- [ ] Queda anotado en `spike.md` el desenlace de X1-Q1: si el POST REST al namespace de la extensión funciona (y ahorraría esta conexión) o se descarta
+- [x] La conexión se restablece sola si se cae, sin reiniciar el proceso
+- [x] Queda anotado en `spike.md` el desenlace de X1-Q1: si el POST REST al namespace de la extensión funciona (y ahorraría esta conexión) o se descarta
+
+## Cómo se verificó
+
+- **Token y conexión**: el agente entra al canal como `anon_…` y sale en el roster con
+  `displayName: "Synapse"`. Visto desde un observador headless independiente
+  (`internal/probe-observer.mjs`).
+- **`send()` → `onBatch`**: `GET /api/agent/propose?room=<sala>` devuelve el `graph.delta`
+  con el que contesta la extensión, y la versión sube 1 → 2 entre disparos seguidos.
+- **Reconexión**: proxy TCP local que corta la conexión a voluntad
+  (`internal/probe-reconnect.mjs`). El canal se cura solo, `ready → degraded-http → ready`
+  en aproximadamente un segundo, sin reiniciar el proceso.
+- **X1-Q1**: `internal/probe-rest.mjs`. Desenlace y consecuencias en `spike.md`.
+
+Queda la corrida del criterio 4 en Railway con tres pestañas: el equivalente headless (el
+delta llega a otro participante del canal) ya pasa, pero el enunciado pide verlo en las tres
+pantallas del entorno desplegado, que es donde el 04 se dio por cerrado.

@@ -1,5 +1,17 @@
 import type { Delta, Proposal } from "@synapse/graph-core";
 
+/**
+ * El canal de una sala.
+ *
+ * El prefijo no es decorativo: `portal.config.ts` engancha la extensión con el template
+ * `room-*`, y un template de Portal exige prefijo fijo. Un slug pelado dejaría la sala sin
+ * `graph-owner`. Cliente y agente headless tienen que coincidir aquí o hablarían a canales
+ * distintos, así que la regla vive en un solo sitio.
+ */
+export function channelIdFor(roomId: string): string {
+  return `room-${roomId}`;
+}
+
 /** Tipo de mensaje con el que la extensión `graph-owner` difunde cada delta. */
 export const GRAPH_DELTA_TYPE = "graph.delta";
 
