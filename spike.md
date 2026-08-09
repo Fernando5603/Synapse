@@ -25,7 +25,7 @@ Saber por dónde puede entrar un mensaje generado en el servidor al namespace de
 | **X1-Q3** | ¿Puede el código de una extensión hacer `fetch` saliente a un tercero, y leer un secreto definido con `portal secrets set`? | **Señal negativa.** El `ExtensionContext` documentado expone solo `ctx.storage`; no aparece `fetch` ni `env()`. Decide si B es viable — no bloquea a C |
 | **X1-Q4** | ¿Cuál es el ciclo editar → desplegar → probar de una extensión, y cuánto tarda? | **Respondida al construir el ticket 04.** `portal deploy` tarda segundos; el ciclo real son minutos y tiene tres trampas. Ver abajo |
 | **X1-Q5** | ¿Cuál es la API de inbox / notificaciones in-app, y qué hace falta para emitir una notificación dirigida a un usuario concreto desde código de servidor? | **Respondida.** No hay endpoint suelto: la ruta REST acepta `to?`/`mentions?`, y una regla en `portal.config.ts` devuelve un descriptor de notificación sobre el mensaje del canal |
-| **X1-Q6** | Cuando una instancia de extensión se recicla, ¿qué se rehidrata solo desde `ctx.storage` y qué hay que reconstruir a mano en `onInit`? | **Medido a medias en el ticket 04**: el reciclaje llega en **menos de 45 s** de inactividad. Qué rehidrata sigue abierto. Ver abajo |
+| **X1-Q6** | Cuando una instancia de extensión se recicla, ¿qué se rehidrata solo desde `ctx.storage` y qué hay que reconstruir a mano en `onInit`? | **Respondida en el ticket 06: no se rehidrata nada solo.** Portal devuelve todos los campos de instancia a su inicializador; sobrevive exactamente lo que se escribió en `ctx.storage`, y leerlo es cosa de la extensión. Ver abajo |
 
 ## X1-Q1 — el POST REST sí entra en la extensión, medido en el ticket 05
 
@@ -89,9 +89,19 @@ se manifiestan todas igual — no pasa nada y no hay ningún error.
 
 3. **El CLI compara el config evaluado, no el texto del fichero.** Añadir un comentario a
    `portal.config.ts` no fuerza nada: responde `is unchanged — activated the existing
-   version`. Un cambio semántico (renombrar el handle, añadir una entrada) sí. *Sin
-   comprobar*: si editar **solo** el fichero de la extensión, sin tocar el config, vuelve a
-   subir el bundle. Asúmelo que no hasta que alguien lo verifique.
+   version`. Un cambio semántico (renombrar el handle, añadir una entrada) sí.
+   **Comprobado en el 06: el bundle de la extensión cuenta como parte del config.** Editar
+   **solo** `extensions/graph-owner.ts`, sin tocar `portal.config.ts`, da una `Version`
+   nueva y un `Uploaded: 1 extension`; desplegar dos veces sin cambiar nada da el
+   `is unchanged`. O sea que el ciclo normal del 06 en adelante —editar la extensión y
+   desplegar— sube código de verdad.
+
+4. **Entre el `✓ Deployed` y el código nuevo corriendo pasa más de un minuto.** Medido en
+   el 06: **~40 s después** de un deploy, un canal recién estrenado seguía contestando con
+   el bundle anterior; unos minutos más tarde, el mismo código ya era el nuevo. El CLI
+   dice `Uploaded`, no "activo". Es la cuarta forma que tiene este ciclo de decir "no pasa
+   nada": si acabas de desplegar y ves el comportamiento viejo, espera y vuelve a probar
+   **antes** de tocar el código.
 
 **No hay forma de observar una extensión desde fuera.** No existe `portal logs` ni una
 consulta del tipo "qué extensiones tiene este canal". Las dos únicas señales son si vuelve
@@ -127,8 +137,47 @@ entre un turno de conversación y el siguiente.** En una discusión real la gent
 45 segundos constantemente. Un grafo que viva solo en un campo de instancia se vacía a mitad
 de sesión, y el síntoma sería un grafo que "olvida" en vez de un error.
 
-Sigue abierto qué rehidrata Portal por su cuenta al reciclar y qué hay que reconstruir en
-`onInit` — pero la pregunta ya no es si hace falta persistir: es cuándo.
+### Qué rehidrata Portal solo, medido en el ticket 06
+
+**Nada.** La extensión del 06 lleva en su `onSnapshot` un pequeño informe de instancia
+—`{ epoch, rehydrated, batches }`— donde `batches` cuenta los batches que ha procesado
+*esta* instancia y no se persiste. Eso convierte el reciclaje en algo que se ve desde
+fuera. Con la sonda `internal/probe-graph06.mjs`, una sola corrida:
+
+| Momento | Lo que devuelve la extensión |
+|---|---|
+| Propuesta 1 en una sala nueva | delta `v1`, +2 nodos |
+| **50 s de espera, con un cliente conectado todo el rato** | — |
+| Propuesta 2 (otra grafía de lo mismo + un nodo nuevo) | delta `v2`, +1 nodo |
+| Late-joiner que entra justo después | grafo entero (3 nodos, `v2`), `rehydrated: true`, **`batches: 1`** |
+
+`batches: 1` es la prueba del reciclaje: la instancia que contestó solo había visto el
+segundo batch. Y sin embargo el grafo estaba entero y la versión siguió en `v2`.
+Conclusión, campo a campo:
+
+- **Todos los campos de instancia vuelven a su inicializador.** El grafo, el contador de
+  batches y la marca de agua del `batchSeq` estaban como recién construidos.
+- **Sobrevive exactamente lo que se escribió en `ctx.storage`**, y hay que ir a buscarlo:
+  Portal no reinyecta nada. La extensión persiste dos claves —el grafo y el par
+  `{epoch, seq}` del último batch— y las relee al arrancar.
+- **La marca de agua del `batchSeq` también hay que persistirla.** Es lo que evita que un
+  batch reentregado tras el reciclaje vuelva a inflar la versión. Se guarda junto al
+  `epoch` porque es el `epoch` el que le da sentido al número.
+- **La sala vacía es otro reciclaje, y el grafo también lo aguanta.** Volviendo a la misma
+  sala minutos después de que se fueran todos, las mismas dos propuestas dieron `v3` y
+  `v4` con **+0 nodos**: el dedupe corrió contra el grafo persistido, no contra uno vacío.
+
+Dos detalles que no se dedujeron de la documentación y muerden:
+
+- **`onInit` no basta como único sitio donde rehidratar.** Un cliente que entra a una sala
+  dormida provoca un `onSnapshot` sobre una instancia fría, y la documentación no promete
+  que `onInit` haya terminado antes. *No está medido* si puede llegar antes; la extensión
+  memoiza la lectura de `ctx.storage` y la espera desde los tres handlers, que sale gratis
+  y no depende del orden.
+- **`ext` es `undefined` en una sala donde todavía no ha pasado nada.** No hay instancia,
+  así que no hay snapshot. Para el cliente "no hay snapshot" tiene que significar "nada
+  que añadir" y nunca "el grafo está vacío" — es lo que hace `graphWithSnapshot` en
+  `apps/web/lib/channel.ts`.
 
 ## Acceptance
 

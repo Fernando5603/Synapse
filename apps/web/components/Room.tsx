@@ -18,6 +18,7 @@ import {
   GRAPH_DELTA_TYPE,
   GRAPH_PROPOSAL_TYPE,
   channelIdFor,
+  graphWithSnapshot,
   isChatContent,
   isCursorContent,
   isDeltaContent,
@@ -33,8 +34,8 @@ import { detailedParticipants, resolveDisplayName } from "@/lib/display";
 const CURSOR_EPHEMERAL_INTERVAL = 50;
 const CURSOR_METADATA_INTERVAL = 250;
 
-// La extensión todavía ignora el contenido y devuelve un delta fijo (ticket 04), así que
-// esto solo tiene que ser una `Proposal` con la forma del contrato.
+// Desde el ticket 06 la extensión mergea esto de verdad: los nodos que aparecen son los
+// que acuña `mergeProposal`, y proponerlo dos veces no duplica nada.
 const DEMO_PROPOSAL: Proposal = {
   nodes: [
     { type: "Concept", name: "latency" },
@@ -56,7 +57,7 @@ export default function Room({
   roomId: string;
   displayName: string;
 }) {
-  const { messages, send, presence, me, status, setMetadata } = useChannel<ChannelContent>(
+  const { messages, send, presence, me, status, setMetadata, ext } = useChannel<ChannelContent>(
     // El backfill por defecto son 50 mensajes; el guion de evaluación son ~40 turnos
     // más el chat de los tres, así que un late-joiner se perdería el arranque.
     {
@@ -140,9 +141,16 @@ export default function Room({
   }
 
   // El grafo se construye aplicando los `graph.delta` que difunde la extensión, que es
-  // su dueña. Arranca vacío: quien entra a mitad de sesión no lo reconstruye desde el
-  // historial —eso lo resuelve el `onSnapshot` del ticket 06—, se llena con lo que llega.
+  // su dueña. Arranca vacío y se llena por dos caminos que convergen: los deltas que van
+  // llegando, y el grafo entero que la extensión sirve en la trama de conexión.
   const [graph, setGraph] = useState<Graph>(emptyGraph);
+
+  // El late-join entero. `ext` llega con el `ready` —también el de cada reconexión—, así
+  // que esto corre en cuanto hay grafo autoritativo que leer: una pestaña abierta a mitad
+  // de sesión lo pinta completo sin esperar a que pase nada en la sala.
+  useEffect(() => {
+    setGraph((previous) => graphWithSnapshot(previous, ext));
+  }, [ext]);
 
   // Hasta que el backend sea participante del canal (ticket 05), la única forma de
   // entregarle una propuesta a la extensión es a mano. El handle del canal vive dentro

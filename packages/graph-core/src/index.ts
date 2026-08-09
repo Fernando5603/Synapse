@@ -3,6 +3,8 @@ export type {
   Edge,
   EntityType,
   Graph,
+  GraphSnapshot,
+  InstanceReport,
   MergeResult,
   Node,
   Proposal,
@@ -12,5 +14,11 @@ export type {
 } from "./types.js";
 
 export { applyDelta } from "./delta.js";
+export {
+  ENTITY_TYPES,
+  RELATION_TYPES,
+  isGraph,
+  sanitizeProposal,
+} from "./guards.js";
 export { emptyGraph, mergeProposal } from "./merge.js";
 export { renderDocument } from "./document.js";

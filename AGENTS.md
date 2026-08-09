@@ -28,9 +28,11 @@ Tres procesos:
 - **Backend Next.js** — route handler del webhook, buffer de turnos, llamada al LLM, detección de contradicción, generación del documento, y un cliente headless de `@portalsdk/core` conectado por WebSocket (`apps/web/lib/agent.ts`, uno por proceso, colgado de `globalThis` para sobrevivir al hot reload). Entra a la sala como participante y aparece en el roster como «Synapse»; `apps/web/app/api/agent/propose/route.ts` es el disparo manual mientras no haya LLM.
 - **Channel extension de Portal (`graph-owner`)** — dueña del grafo autoritativo. Recibe propuestas, mergea, deduplica, versiona, emite `graph.delta` como return de `onBatch` y sirve el grafo completo vía `onSnapshot()` para el late-join. Vive en `extensions/graph-owner.ts`; `portal.config.ts` (raíz) la engancha al canal y `npm run deploy:portal` la sube (necesita `PORTAL_SECRET`).
 
-Sin base de datos: el grafo vive en memoria de la extensión y se persiste en `ctx.storage`. Deploy en Railway (crédito de prueba, sin cold starts).
+Sin base de datos: el grafo vive en memoria de la extensión y se persiste en `ctx.storage`. Deploy en Railway (crédito de prueba, sin cold starts). Local mientras aún no se deployee.
 
 Medido en el ticket 04: **una instancia de extensión pierde su memoria en menos de 45 s de inactividad** (`spike.md`, X1-Q6). Así que `ctx.storage` no protege del reciclaje del proceso — es la única memoria que hay entre un turno de conversación y el siguiente.
+
+Y medido en el 06, cerrando X1-Q6: **Portal no rehidrata nada por su cuenta.** Al reciclar, todos los campos de instancia vuelven a su inicializador; sobrevive solo lo que se escribió en `ctx.storage` y hay que ir a leerlo. La extensión persiste el grafo y la marca de agua del `batchSeq` tras cada merge, y relee las dos cosas al arrancar. La lectura se memoiza y se espera desde `onInit`, `onBatch` y `onSnapshot`: un cliente que entra a una sala dormida despierta la instancia con un `onSnapshot`, y nadie promete que `onInit` haya terminado antes.
 
 ## El seam: `graph-core`
 
@@ -43,7 +45,17 @@ detectContradiction(graph, proposal) -> { targetUserId, claimId } | null
 renderDocument(graph)                -> string
 ```
 
-`applyDelta` es la contraparte de `mergeProposal`: quien mergea produce el delta, quien lo recibe lo aplica. La usan el cliente y el espejo del backend, y es idempotente porque los batches de Portal llegan **al menos una vez**.
+`applyDelta` es la contraparte de `mergeProposal`: quien mergea produce el delta, quien lo recibe lo aplica. La usan el cliente y el espejo del backend, y es idempotente porque los batches de Portal llegan **al menos una vez**. También es como se adopta el snapshot del late-join: **un snapshot es un delta que lo añade todo**, y unirlo en vez de sustituir es lo que evita que una reconexión devuelva la pantalla a un pasado.
+
+Junto a las cuatro, la aduana del contrato — el mismo módulo, porque el esquema cerrado tiene que ser uno solo:
+
+```
+sanitizeProposal(value: unknown) -> Proposal      // filtra lo que no cumple; nunca lanza
+isGraph(value: unknown)          -> boolean       // ¿es esto un Graph? (forma, no invariantes)
+ENTITY_TYPES / RELATION_TYPES                     // el esquema de 6+6, en tiempo de ejecución
+```
+
+`sanitizeProposal` **filtra** y `isGraph` **rechaza entero**, y la asimetría es deliberada: una propuesta la produce el LLM y seis nodos con un tipo mal escrito aportan cinco, no cero; un grafo lo escribe el propio sistema, y uno que no cuadra no es un grafo a medias sino uno de otra versión. Una propuesta ilegible se funde como una propuesta vacía, así que no hay caso aparte: sigue habiendo delta y quien la mandó recibe su acuse.
 
 Es el seam principal; los demás están listados en Testing.
 
@@ -61,6 +73,8 @@ Delta    = { addedNodes: Node[], addedEdges: Edge[], version: number }
 - `RelationType`: `SUPPORTS` · `CONTRADICTS` · `ELABORATES` · `ANSWERS` · `PROPOSED_BY` · `RESOLVES`
 - Las `Proposal` refieren nodos **por nombre** (el LLM no conoce ids); `mergeProposal` resuelve nombre→id.
 - Un `Delta` vacío es válido y se emite con la versión incrementada (sostiene el criterio (a)).
+
+El late-join viaja aparte y **no** forma parte del contrato congelado: el blob que la extensión sirve en `onSnapshot` —el cliente lo lee en `ext.graph`, donde `graph` es el handle de `portal.config.ts`— es `{ graph, instance }`. El `graph` sí es el contrato; `instance` es `{ epoch, rehydrated, batches }`, diagnóstico puro, la única ventana que hay a una extensión desplegada (no existe `portal logs`). Nada del producto debe leer `instance`.
 
 **Congelado desde que aterrizó el ticket 04**, que es donde el delta viajó por primera vez de la extensión a las tres pantallas. A partir de aquí los tres frentes trabajan contra él: cambiarlo requiere **acuerdo de las tres personas**, no una decisión unilateral. Los tipos de mensaje que lo transportan son parte del contrato: `graph.proposal` (hacia la extensión) lleva una `Proposal`, `graph.delta` (de la extensión al canal) lleva un `Delta`.
 
@@ -90,7 +104,8 @@ Reglas de `mergeProposal` fijadas por test (no cambiarlas sin rippear el gold):
 
 ## Testing
 
-- **Seam aprobado 1 — `graph-core`** (`packages/graph-core/src/merge.ts`, `src/delta.ts` y `src/document.ts`): tests de comportamiento externo (grafo+propuesta → grafo/delta/markdown), sin servidor, sin Portal, sin red, sin reloj. `renderDocument(graph) -> string` es la plantilla determinista del documento final: decisiones con su cadena de soporte (SUPPORTS/ELABORATES transitivos), contradicciones CONTRADICTS y `Question` sin `ANSWERS`. Los nombres describen la regla de negocio, no el método.
+- **Seam aprobado 1 — `graph-core`** (`packages/graph-core/src/merge.ts`, `src/delta.ts`, `src/guards.ts` y `src/document.ts`): tests de comportamiento externo (grafo+propuesta → grafo/delta/markdown), sin servidor, sin Portal, sin red, sin reloj. `renderDocument(graph) -> string` es la plantilla determinista del documento final: decisiones con su cadena de soporte (SUPPORTS/ELABORATES transitivos), contradicciones CONTRADICTS y `Question` sin `ANSWERS`. Los nombres describen la regla de negocio, no el método.
+- **Seam aprobado 5 — late-join** (`apps/web/lib/channel.ts`): `graphWithSnapshot(local, ext)` decide qué grafo se pinta a partir de la trama de conexión del SDK. Lógica pura sobre datos con forma del SDK, sin importarlo. Cubre lo que no puede fallar en silencio: que un late-joiner vea el grafo entero, que adoptar el snapshot no borre un delta ya pintado, y que "no hay snapshot" —extensión degradada, sala donde no ha pasado nada, blob que no cumple el contrato— deje la pantalla como estaba en vez de vaciarla.
 - **Seam aprobado 2 — display-name/roster** (`apps/web/lib/display.ts`): lógica pura de nombres de mensaje y roster sobre datos con forma del SDK (participants, me, sender), sin importar el SDK. Tests de comportamiento con nombres de regla de negocio.
 - **Seam aprobado 3 — layout del grafo** (`apps/web/lib/layout.ts`): siembra determinista de posición desde el `id` del nodo (`seedPosition`, función pura: misma posición para el mismo `id` en cualquier pantalla, dentro del lienzo) + relajación estrictamente local (`relaxNeighbors` mueve solo los vecinos inmediatos del nodo ancla hacia la distancia de reposo, sin re-layout global ni historial de llegada). Lógica pura sobre el contrato de `graph-core`, sin importar el SDK.
 - **Seam aprobado 4 — cursores en vivo** (`apps/web/lib/cursor.ts`): throttle del envío (`shouldEmitCursor` decide según el último envío), lectura de la última posición desde la metadata de presencia (`cursorFromMetadata`, el fallback del late-join) y fusión de efímeros en vivo con metadata (`mergeRemoteCursors`; el efímero gana). Atribución con `resolveDisplayName`. Lógica pura sobre datos con forma del SDK, sin importar el SDK.
@@ -102,7 +117,7 @@ V1 y V2 son secuenciales y de los tres. A partir de V3 se abre en tres frentes.
 
 | Slice | Demo |
 |---|---|
-| **V1** Sala viva | "Tres pestañas en Railway, se chatean, se ven en el roster" |
+| **V1** Sala viva | "Tres pestañas en Railway/local, se chatean, se ven en el roster" |
 | **V2** Delta falso end-to-end | "Escribo `/spawn` y aparece el mismo nodo en las tres pantallas" |
 | **V3** Extractor real | "Hablo de verdad un minuto y aparecen nodos reales tipados" |
 | **V4** Grafo autoritativo y late-join | "Entro a mitad de sesión y veo todo. El grafo sobrevive al reciclaje" |
